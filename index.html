@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>屏风式四子棋 · 强化版</title>
+    <title>屏风式四子棋 · 收益模拟 (5秒)</title>
     <style>
-        /* ===== 全局样式 (与第一版完全一致) ===== */
+        /* ===== 全局样式 (与第二版完全一致) ===== */
         * {
             margin: 0;
             padding: 0;
@@ -474,7 +474,7 @@
                     <button class="btn btn-rule" id="initRuleBtn">📖 规则</button>
                 </div>
             </div>
-            <p class="subtitle">🧠 强化版 AI · 收益模拟</p>
+            <p class="subtitle">🧠 收益模拟 · 5秒思考</p>
 
             <div class="choice-group">
                 <button class="btn btn-choice active" data-choice="human" id="choiceHuman">
@@ -530,7 +530,7 @@
                 <li>棋盘为 <strong>7 列 × 6 行</strong>，棋子从顶部垂直落下，堆叠在底部。</li>
                 <li>双方轮流落子，率先在 <strong>水平、垂直或对角线</strong> 方向连成 <strong>四子</strong> 的一方获胜。</li>
                 <li>若棋盘填满仍未分胜负，则为 <strong>平局</strong>。</li>
-                <li>本程序 AI 使用 <strong>收益模拟算法</strong>（第二版），决策更智能。</li>
+                <li>本程序 AI 使用 <strong>收益模拟算法</strong>（第二版），思考时间延长至 <strong>5秒</strong>，决策更稳定。</li>
                 <li>鼠标悬停 / 触摸滑动时显示 <strong>竖虚线</strong> 指示落子位置。</li>
             </ul>
             <button class="btn btn-primary" id="rulesCloseBtn">知道了</button>
@@ -538,7 +538,7 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- JavaScript (核心算法升级) -->
+    <!-- JavaScript (核心算法: 第二版收益模拟 + 5秒思考) -->
     <!-- ============================================================ -->
     <script>
         (function() {
@@ -552,7 +552,8 @@
             const EMPTY = 0;
             const HUMAN = 1;
             const AI_PLAYER = 2;
-            const REWARD_DECAY = 4.2; // 衰减常数
+            const REWARD_DECAY = 4.2;
+            const THINK_TIME_MS = 5000; // ★★★ 思考时间延长至 5 秒 ★★★
 
             // =============================================================
             //  DOM 引用
@@ -781,69 +782,48 @@
             }
 
             // =============================================================
-            //  ★★★ 核心算法升级 (第二版) ★★★
+            //  ★★★ 核心算法 (第二版收益模拟) ★★★
             // =============================================================
 
-            /**
-             * 模拟一次完整的随机对局，从在 col 列落子（AI）开始
-             * @param {number[][]} boardState - 当前棋盘状态（不会被修改）
-             * @param {number} col - 候选列
-             * @returns {number} 收益值：正数表示AI赢，负数表示AI输，0表示平局
-             */
             function simulateGameWithReward(boardState, col) {
                 const sim = copyBoard(boardState);
-                // 在 col 列落子 (AI)
                 const row = getEmptyRow(sim, col);
-                if (row === -1) return 0; // 无效列
+                if (row === -1) return 0;
 
                 sim[row][col] = AI_PLAYER;
-                let steps = 1; // 已经落了一子
+                let steps = 1;
 
-                // 检查AI是否立刻获胜
                 if (checkWin(sim, row, col, AI_PLAYER)) {
-                    // 收益 = exp(-steps / REWARD_DECAY)
                     return Math.exp(-steps / REWARD_DECAY);
                 }
 
-                // 交替随机落子，直到终局
-                let player = HUMAN; // 下一步由人类随机下
+                let player = HUMAN;
                 while (true) {
                     const avail = getAvailableCols(sim);
-                    if (avail.length === 0) {
-                        // 平局
-                        return 0;
-                    }
+                    if (avail.length === 0) return 0;
 
-                    // 随机选一列
                     const randCol = avail[Math.floor(Math.random() * avail.length)];
                     const randRow = getEmptyRow(sim, randCol);
                     sim[randRow][randCol] = player;
                     steps++;
 
-                    // 检查是否获胜
                     if (checkWin(sim, randRow, randCol, player)) {
                         if (player === AI_PLAYER) {
-                            // AI 赢
                             return Math.exp(-steps / REWARD_DECAY);
                         } else {
-                            // 人类赢 (AI输)
                             return -Math.exp(-steps / REWARD_DECAY);
                         }
                     }
 
-                    // 切换玩家
                     player = (player === HUMAN) ? AI_PLAYER : HUMAN;
                 }
             }
 
-            /**
-             * AI 决策：在 1 秒内进行收益模拟，选择平均收益最高的列
-             */
             function aiMove() {
                 if (gameOver || isAITurn || currentPlayer !== AI_PLAYER) return;
 
                 isAITurn = true;
-                updateStatusText('🤖 AI 思考中 ...', 'idle');
+                updateStatusText('🤖 AI 思考中 ... (5秒)', 'idle');
 
                 const avail = getAvailableCols(board);
                 if (avail.length === 0) {
@@ -851,7 +831,6 @@
                     return;
                 }
 
-                // 初始化每个列的收益总和与模拟次数
                 const totalReward = {};
                 const count = {};
                 for (const c of avail) {
@@ -860,25 +839,23 @@
                 }
 
                 const startTime = performance.now();
-                const endTime = startTime + 1000; // 固定1秒
+                const endTime = startTime + THINK_TIME_MS; // 使用 5 秒
 
-                // 先对每个列进行一次初始模拟，保证所有列都有数据
+                // 初始模拟：每个列至少一次
                 for (const c of avail) {
                     const reward = simulateGameWithReward(board, c);
                     totalReward[c] += reward;
                     count[c] += 1;
                 }
 
-                // 剩余时间内进行大量随机模拟
+                // 主循环：随机模拟
                 while (performance.now() < endTime) {
-                    // 随机选择一个列
                     const col = avail[Math.floor(Math.random() * avail.length)];
                     const reward = simulateGameWithReward(board, col);
                     totalReward[col] += reward;
                     count[col] += 1;
                 }
 
-                // 选择平均收益最高的列
                 let bestCol = avail[0];
                 let bestAvg = -Infinity;
                 for (const c of avail) {
@@ -889,7 +866,6 @@
                     }
                 }
 
-                // ---- AI 落子 ----
                 const row = getEmptyRow(board, bestCol);
                 if (row === -1) {
                     isAITurn = false;
@@ -899,7 +875,6 @@
                 board[row][bestCol] = AI_PLAYER;
                 selectedCol = -1;
 
-                // 检查胜负
                 if (checkWin(board, row, bestCol, AI_PLAYER)) {
                     gameOver = true;
                     isAITurn = false;
@@ -914,7 +889,6 @@
                     return;
                 }
 
-                // 切换回合
                 currentPlayer = HUMAN;
                 isAITurn = false;
                 renderBoard();
@@ -947,7 +921,7 @@
 
                 currentPlayer = AI_PLAYER;
                 renderBoard();
-                updateStatusText('🤖 AI 思考中 ...', 'idle');
+                updateStatusText('🤖 AI 思考中 ... (5秒)', 'idle');
 
                 if (aiTimerId) {
                     clearTimeout(aiTimerId);
@@ -974,7 +948,7 @@
                 renderBoard();
 
                 if (firstPlayer === AI_PLAYER) {
-                    updateStatusText('🤖 AI 思考中 ...', 'idle');
+                    updateStatusText('🤖 AI 思考中 ... (5秒)', 'idle');
                     aiTimerId = setTimeout(() => {
                         aiTimerId = null;
                         aiMove();
@@ -1057,7 +1031,7 @@
                 renderBoard();
 
                 if (firstPlayer === AI_PLAYER) {
-                    updateStatusText('🤖 AI 思考中 ...', 'idle');
+                    updateStatusText('🤖 AI 思考中 ... (5秒)', 'idle');
                     if (aiTimerId) {
                         clearTimeout(aiTimerId);
                         aiTimerId = null;
@@ -1234,7 +1208,7 @@
             initialScreen.classList.add('active');
             gameScreen.classList.remove('active');
 
-            console.log('🪟 屏风式四子棋 (第二版 · 收益模拟) 已加载');
+            console.log('🪟 屏风式四子棋 (第二版 · 收益模拟 · 5秒思考) 已加载');
         })();
     </script>
 </body>
