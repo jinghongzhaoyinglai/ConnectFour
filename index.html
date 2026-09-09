@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>屏风式四子棋 v2.0 (MCTS)</title>
+    <title>屏风式四子棋 v2.1 (启发式MC)</title>
     <style>
         /* ===== 全局重置 & 基础 (与原版相同) ===== */
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -239,12 +239,12 @@
         <!-- 初始界面 -->
         <div class="screen active" id="initialScreen">
             <div class="header">
-                <h1>🪟 屏风式<span>四子棋</span><span class="version">v2.0 (MCTS)</span></h1>
+                <h1>🪟 屏风式<span>四子棋</span><span class="version">v2.1</span></h1>
                 <div class="header-actions">
                     <button class="btn btn-rule" id="initRuleBtn">📖 规则</button>
                 </div>
             </div>
-            <p class="subtitle">✨ 与 AI 对弈 · 蒙特卡洛树搜索 (MCTS)</p>
+            <p class="subtitle">✨ 净胜率蒙特卡洛 + 启发式模拟</p>
             <div class="choice-group">
                 <button class="btn btn-choice active" data-choice="human" id="choiceHuman">
                     <span class="emoji">🧑</span> 我先下
@@ -261,7 +261,7 @@
         <!-- 对局界面 -->
         <div class="screen" id="gameScreen">
             <div class="header">
-                <h1>🪟 四子棋 <span class="version">v2.0 (MCTS)</span></h1>
+                <h1>🪟 四子棋 <span class="version">v2.1</span></h1>
                 <div class="header-actions">
                     <button class="btn btn-restart" id="restartBtn">🔄 重新开始</button>
                     <button class="btn btn-rule" id="gameRuleBtn">📖 规则</button>
@@ -299,8 +299,8 @@
                 <li>棋盘为 <strong>7 列 × 6 行</strong>，棋子从顶部垂直落下，堆叠在底部。</li>
                 <li>双方轮流落子，率先在 <strong>水平、垂直或对角线</strong> 方向连成 <strong>四子</strong> 的一方获胜。</li>
                 <li>若棋盘填满仍未分胜负，则为 <strong>平局</strong>。</li>
-                <li>本程序 AI 使用 <strong>蒙特卡洛树搜索 (MCTS)</strong> 算法，思考时间约 <strong>3 秒</strong>。</li>
-                <li>MCTS 通过选择 (UCB)、扩展、模拟和回溯，智能评估每个落子点的长期价值。</li>
+                <li>本程序 AI 使用 <strong>净胜率蒙特卡洛模拟</strong> + <strong>启发式快速走子</strong>，思考时间 <strong>3 秒</strong>。</li>
+                <li>AI 在模拟中会优先选择 <span class="highlight">能赢或能堵</span> 的位置，并偏向中间列，棋力明显优于纯随机版本。</li>
                 <li>鼠标悬停 / 触摸滑动时显示 <strong>竖虚线</strong> 指示落子位置。</li>
             </ul>
             <button class="btn btn-primary" id="rulesCloseBtn">知道了</button>
@@ -320,7 +320,6 @@
             const HUMAN = 1;
             const AI_PLAYER = 2;
             const AI_THINK_TIME = 3000; // 3 秒
-            const UCB_C = 1.4;           // 探索常数
 
             // =============================================================
             //  DOM 引用
@@ -420,180 +419,369 @@
                 return false;
             }
 
-            // 检查整个棋盘是否已结束（满或有人获胜）
-            function isGameOverBoard(b) {
-                if (isBoardFull(b)) return true;
-                for (let r = 0; r < ROWS; r++) {
-                    for (let c = 0; c < COLS; c++) {
-                        if (b[r][c] !== EMPTY && checkWin(b, r, c, b[r][c])) {
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            }
-
-            // 获取游戏赢家（AI视角奖励：1 AI赢，-1 AI输，0平，null未结束）
-            function getWinnerReward(b, lastRow, lastCol) {
-                if (isBoardFull(b)) return 0; // 平局
-                if (lastRow !== undefined && lastRow >= 0 && lastCol >= 0) {
-                    const winner = b[lastRow][lastCol];
-                    if (winner === AI_PLAYER) return 1;
-                    else if (winner === HUMAN) return -1;
-                }
-                // 如果不是最后一步赢，但棋盘有赢家（例如根节点），遍历检查
-                for (let r = 0; r < ROWS; r++) {
-                    for (let c = 0; c < COLS; c++) {
-                        if (b[r][c] !== EMPTY && checkWin(b, r, c, b[r][c])) {
-                            if (b[r][c] === AI_PLAYER) return 1;
-                            else return -1;
-                        }
-                    }
-                }
-                return null; // 未结束
-            }
-
             // =============================================================
-            //  随机模拟（从当前状态开始，随机落子直到结束，返回AI视角奖励）
+            //  ★★★ 升级版模拟引擎（启发式走子） ★★★
             // =============================================================
-            function simulateRandomGame(b, currentPlayer) {
+            function simulateGame(b, col) {
                 const sim = copyBoard(b);
-                let player = currentPlayer;
-                let lastRow, lastCol;
+                const row = getEmptyRow(sim, col);
+                if (row === -1) return null;
+
+                // AI 落子
+                sim[row][col] = AI_PLAYER;
+                let steps = 1;
+
+                if (checkWin(sim, row, col, AI_PLAYER)) {
+                    return { result: 'win', steps: steps };
+                }
+
+                let player = HUMAN;
                 while (true) {
                     const avail = getAvailableCols(sim);
-                    if (avail.length === 0) return 0; // 平局
-                    const col = avail[Math.floor(Math.random() * avail.length)];
-                    const row = getEmptyRow(sim, col);
-                    sim[row][col] = player;
-                    lastRow = row; lastCol = col;
-                    if (checkWin(sim, row, col, player)) {
-                        if (player === AI_PLAYER) return 1;
-                        else return -1;
+                    if (avail.length === 0) {
+                        return { result: 'draw', steps: steps };
+                    }
+
+                    // ----- 智能选列（攻防 + 中心倾向） -----
+                    let chosenCol;
+
+                    // 1. 若能赢，直接赢
+                    let winCol = -1;
+                    for (const c of avail) {
+                        const r = getEmptyRow(sim, c);
+                        const testBoard = copyBoard(sim);
+                        testBoard[r][c] = player;
+                        if (checkWin(testBoard, r, c, player)) {
+                            winCol = c;
+                            break;
+                        }
+                    }
+                    if (winCol !== -1) {
+                        chosenCol = winCol;
+                    } else {
+                        // 2. 防守：若对手下一步能赢，堵住
+                        const opponent = (player === HUMAN) ? AI_PLAYER : HUMAN;
+                        let blockCol = -1;
+                        for (const c of avail) {
+                            const r = getEmptyRow(sim, c);
+                            const testBoard = copyBoard(sim);
+                            testBoard[r][c] = opponent;
+                            if (checkWin(testBoard, r, c, opponent)) {
+                                blockCol = c;
+                                break;
+                            }
+                        }
+                        if (blockCol !== -1) {
+                            chosenCol = blockCol;
+                        } else {
+                            // 3. 偏向中间列（中心优先）
+                            const centerCols = [3, 2, 4, 1, 5, 0, 6];
+                            let picked = false;
+                            for (const c of centerCols) {
+                                if (avail.includes(c)) {
+                                    // 有一定概率直接选中心，否则随机选一个可用列（增加多样性）
+                                    if (c === 3 && Math.random() < 0.45) {
+                                        chosenCol = c;
+                                        picked = true;
+                                        break;
+                                    } else if (Math.random() < 0.3) {
+                                        // 随机选一个，避免完全僵化
+                                        const randomIdx = Math.floor(Math.random() * avail.length);
+                                        chosenCol = avail[randomIdx];
+                                        picked = true;
+                                        break;
+                                    } else {
+                                        chosenCol = c;
+                                        picked = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!picked) {
+                                // 兜底
+                                chosenCol = avail[Math.floor(Math.random() * avail.length)];
+                            }
+                        }
+                    }
+
+                    // 落子
+                    const randRow = getEmptyRow(sim, chosenCol);
+                    sim[randRow][chosenCol] = player;
+                    steps++;
+
+                    if (checkWin(sim, randRow, chosenCol, player)) {
+                        if (player === AI_PLAYER) {
+                            return { result: 'win', steps: steps };
+                        } else {
+                            return { result: 'lose', steps: steps };
+                        }
                     }
                     player = (player === HUMAN) ? AI_PLAYER : HUMAN;
                 }
             }
 
             // =============================================================
-            //  MCTS 节点
+            //  AI 决策：净胜率 (Win - Lose) / Count
             // =============================================================
-            class MCTSNode {
-                constructor(board, parent, action, player, lastRow, lastCol) {
-                    this.board = board;               // 当前棋盘 (二维数组)
-                    this.parent = parent;             // 父节点 (或 null)
-                    this.action = action;             // 导致此节点的列 (根节点为 -1)
-                    this.player = player;             // 当前轮到谁走 (HUMAN / AI_PLAYER)
-                    this.lastRow = lastRow;           // 最后落子的行 (根节点 -1)
-                    this.lastCol = lastCol;           // 最后落子的列 (根节点 -1)
-                    this.children = [];
-                    this.untried_actions = getAvailableCols(board);
-                    this.visits = 0;
-                    this.wins = 0;                    // 累计奖励 (AI视角)
-                    // 判断是否终止
-                    this.terminal = isGameOverBoard(board);
+            function aiMove() {
+                if (gameOver || isAITurn || currentPlayer !== AI_PLAYER) return;
+
+                isAITurn = true;
+                aiStartTime = performance.now();
+                updateStatusText('🤖 AI 思考中', 'idle');
+                startThinkingBar();
+
+                const avail = getAvailableCols(board);
+                if (avail.length === 0) {
+                    isAITurn = false;
+                    stopThinkingBar();
+                    return;
                 }
 
-                isFullyExpanded() {
-                    return this.untried_actions.length === 0;
+                const stats = {};
+                for (const c of avail) {
+                    stats[c] = { wins: 0, loses: 0, count: 0 };
                 }
 
-                // 选择UCB最大的子节点
-                bestChild(C) {
-                    let best = null;
-                    let bestValue = -Infinity;
-                    const logParentVisits = Math.log(this.visits || 1);
-                    for (const child of this.children) {
-                        const exploit = child.wins / (child.visits || 1);
-                        const explore = C * Math.sqrt(logParentVisits / (child.visits || 1));
-                        const ucb = exploit + explore;
-                        if (ucb > bestValue) {
-                            bestValue = ucb;
-                            best = child;
+                const endTime = performance.now() + AI_THINK_TIME;
+
+                while (performance.now() < endTime) {
+                    for (const c of avail) {
+                        if (performance.now() >= endTime) break;
+                        const result = simulateGame(board, c);
+                        if (result !== null) {
+                            stats[c].count++;
+                            if (result.result === 'win') {
+                                stats[c].wins++;
+                            } else if (result.result === 'lose') {
+                                stats[c].loses++;
+                            }
+                            // 平局不计入胜/负
                         }
+                        // 更新进度条
+                        const elapsed = performance.now() - aiStartTime;
+                        const progress = Math.min(elapsed / AI_THINK_TIME, 1);
+                        updateThinkingBar(progress);
                     }
-                    return best;
                 }
 
-                // 扩展：随机选择一个未尝试的动作，创建子节点
-                expand() {
-                    if (this.untried_actions.length === 0) return null;
-                    const idx = Math.floor(Math.random() * this.untried_actions.length);
-                    const action = this.untried_actions.splice(idx, 1)[0];
-                    const newBoard = copyBoard(this.board);
-                    const row = getEmptyRow(newBoard, action);
-                    newBoard[row][action] = this.player;
-                    const newPlayer = (this.player === HUMAN) ? AI_PLAYER : HUMAN;
-                    const child = new MCTSNode(newBoard, this, action, newPlayer, row, action);
-                    this.children.push(child);
-                    return child;
+                // 选择净胜率最高的列
+                let bestCol = avail[0];
+                let bestScore = -Infinity;
+
+                for (const c of avail) {
+                    const s = stats[c];
+                    if (s.count === 0) continue;
+                    const netWinRate = (s.wins - s.loses) / s.count;
+                    if (netWinRate > bestScore) {
+                        bestScore = netWinRate;
+                        bestCol = c;
+                    }
+                }
+
+                // 保底
+                if (bestScore === -Infinity) {
+                    bestCol = avail[Math.floor(Math.random() * avail.length)];
+                }
+
+                // ---- AI 落子 ----
+                const row = getEmptyRow(board, bestCol);
+                if (row === -1) {
+                    isAITurn = false;
+                    stopThinkingBar();
+                    return;
+                }
+
+                board[row][bestCol] = AI_PLAYER;
+                selectedCol = -1;
+                stopThinkingBar();
+
+                if (checkWin(board, row, bestCol, AI_PLAYER)) {
+                    gameOver = true;
+                    isAITurn = false;
+                    renderBoard();
+                    showResult('AI赢了', 'lose', '🤖 AI 技高一筹！');
+                    return;
+                } else if (isBoardFull(board)) {
+                    gameOver = true;
+                    isAITurn = false;
+                    renderBoard();
+                    showResult('平局', 'draw', '⚖️ 旗鼓相当！');
+                    return;
+                }
+
+                currentPlayer = HUMAN;
+                isAITurn = false;
+                renderBoard();
+                updateStatusText('🧑 你的回合', 'human');
+            }
+
+            // =============================================================
+            //  思考进度条控制
+            // =============================================================
+            function startThinkingBar() {
+                thinkingBar.classList.add('active');
+                thinkingFill.style.width = '0%';
+            }
+
+            function updateThinkingBar(progress) {
+                thinkingFill.style.width = (progress * 100) + '%';
+            }
+
+            function stopThinkingBar() {
+                thinkingBar.classList.remove('active');
+                thinkingFill.style.width = '0%';
+            }
+
+            // =============================================================
+            //  游戏操作
+            // =============================================================
+            function placeHumanPiece(col) {
+                if (gameOver || isAITurn || currentPlayer !== HUMAN) return false;
+
+                const row = getEmptyRow(board, col);
+                if (row === -1) return false;
+
+                board[row][col] = HUMAN;
+                selectedCol = -1;
+
+                if (checkWin(board, row, col, HUMAN)) {
+                    gameOver = true;
+                    renderBoard();
+                    showResult('你赢了', 'win', '🎉 恭喜你战胜了 AI！');
+                    return true;
+                } else if (isBoardFull(board)) {
+                    gameOver = true;
+                    renderBoard();
+                    showResult('平局', 'draw', '⚖️ 旗鼓相当！');
+                    return true;
+                }
+
+                currentPlayer = AI_PLAYER;
+                renderBoard();
+                updateStatusText('🤖 AI 思考中', 'idle');
+
+                if (aiTimerId) {
+                    clearTimeout(aiTimerId);
+                    aiTimerId = null;
+                }
+                aiTimerId = setTimeout(() => {
+                    aiTimerId = null;
+                    aiMove();
+                }, 120);
+
+                return true;
+            }
+
+            function resetGame() {
+                if (aiTimerId) {
+                    clearTimeout(aiTimerId);
+                    aiTimerId = null;
+                }
+                stopThinkingBar();
+                board = createEmptyBoard();
+                gameOver = false;
+                isAITurn = false;
+                selectedCol = -1;
+                currentPlayer = firstPlayer;
+                renderBoard();
+
+                if (firstPlayer === AI_PLAYER) {
+                    updateStatusText('🤖 AI 思考中', 'idle');
+                    aiTimerId = setTimeout(() => {
+                        aiTimerId = null;
+                        aiMove();
+                    }, 200);
+                } else {
+                    updateStatusText('🧑 你的回合', 'human');
                 }
             }
 
             // =============================================================
-            //  MCTS 主搜索
+            //  UI 更新
             // =============================================================
-            function mctsSearch(board, currentPlayer, timeLimit, progressCallback) {
-                const root = new MCTSNode(board, null, -1, currentPlayer, -1, -1);
-                const startTime = performance.now();
+            function updateStatusText(text, dotType) {
+                turnText.textContent = text;
+                turnDot.className = 'indicator';
+                if (dotType === 'human') turnDot.classList.add('human');
+                else if (dotType === 'ai') turnDot.classList.add('ai');
+                else turnDot.classList.add('idle');
+            }
 
-                while (performance.now() - startTime < timeLimit) {
-                    // --- 选择 ---
-                    let node = root;
-                    while (!node.terminal && node.isFullyExpanded() && node.children.length > 0) {
-                        node = node.bestChild(UCB_C);
-                    }
+            function renderBoard() {
+                resizeCanvas();
+                drawBoard();
+            }
 
-                    // --- 扩展 ---
-                    if (!node.terminal && !node.isFullyExpanded()) {
-                        const child = node.expand();
-                        if (child) node = child;
-                    }
+            function showResult(title, type, sub) {
+                resultModal.classList.add('open');
+                resultTitle.textContent = title;
+                resultTitle.className = 'result-title ' + type;
+                resultSub.textContent = sub || '';
+                if (type === 'win') resultIcon.textContent = '🎉';
+                else if (type === 'lose') resultIcon.textContent = '😅';
+                else resultIcon.textContent = '🤝';
+            }
 
-                    // --- 模拟 ---
-                    let reward = 0;
-                    if (!node.terminal) {
-                        reward = simulateRandomGame(node.board, node.player);
-                    } else {
-                        // 终止节点直接计算奖励（利用最后落子信息）
-                        const r = getWinnerReward(node.board, node.lastRow, node.lastCol);
-                        if (r !== null) reward = r;
-                        else reward = 0; // 安全兜底
-                    }
+            function hideResult() {
+                resultModal.classList.remove('open');
+            }
 
-                    // --- 回溯 ---
-                    while (node !== null) {
-                        node.visits++;
-                        node.wins += reward;
-                        node = node.parent;
-                    }
-
-                    // 更新进度条
-                    if (progressCallback) {
-                        const elapsed = performance.now() - startTime;
-                        progressCallback(elapsed, timeLimit);
-                    }
+            function goToInitial() {
+                hideResult();
+                if (aiTimerId) {
+                    clearTimeout(aiTimerId);
+                    aiTimerId = null;
                 }
+                stopThinkingBar();
+                isAITurn = false;
+                isGameActive = false;
+                gameScreen.classList.remove('active');
+                initialScreen.classList.add('active');
+                choiceHuman.classList.add('active');
+                choiceAi.classList.remove('active');
+                firstPlayer = HUMAN;
+                currentPlayer = HUMAN;
+                board = createEmptyBoard();
+                gameOver = false;
+                selectedCol = -1;
+                renderBoard();
+            }
 
-                // 选择访问次数最多的子节点作为最终落子
-                let bestChild = null;
-                let bestVisits = -1;
-                for (const child of root.children) {
-                    if (child.visits > bestVisits) {
-                        bestVisits = child.visits;
-                        bestChild = child;
+            function startGame() {
+                if (choiceAi.classList.contains('active')) {
+                    firstPlayer = AI_PLAYER;
+                } else {
+                    firstPlayer = HUMAN;
+                }
+                board = createEmptyBoard();
+                gameOver = false;
+                isAITurn = false;
+                selectedCol = -1;
+                currentPlayer = firstPlayer;
+                isGameActive = true;
+
+                initialScreen.classList.remove('active');
+                gameScreen.classList.add('active');
+                renderBoard();
+
+                if (firstPlayer === AI_PLAYER) {
+                    updateStatusText('🤖 AI 思考中', 'idle');
+                    if (aiTimerId) {
+                        clearTimeout(aiTimerId);
+                        aiTimerId = null;
                     }
+                    aiTimerId = setTimeout(() => {
+                        aiTimerId = null;
+                        aiMove();
+                    }, 300);
+                } else {
+                    updateStatusText('🧑 你的回合', 'human');
                 }
-                if (bestChild === null) {
-                    // 无子节点（极少情况），随机选一列
-                    const avail = getAvailableCols(board);
-                    return avail[Math.floor(Math.random() * avail.length)];
-                }
-                return bestChild.action;
             }
 
             // =============================================================
-            //  棋盘渲染 (与原版相同)
+            //  棋盘渲染
             // =============================================================
             function resizeCanvas() {
                 const rect = canvas.getBoundingClientRect();
@@ -707,224 +895,6 @@
                 ctx.strokeStyle = 'rgba(255,255,255,0.06)';
                 ctx.lineWidth = 1;
                 ctx.strokeRect(4, 4, w-8, h-8);
-            }
-
-            function renderBoard() {
-                resizeCanvas();
-                drawBoard();
-            }
-
-            // =============================================================
-            //  进度条控制
-            // =============================================================
-            function startThinkingBar() {
-                thinkingBar.classList.add('active');
-                thinkingFill.style.width = '0%';
-            }
-
-            function updateThinkingBar(progress) {
-                thinkingFill.style.width = Math.min(progress, 1) * 100 + '%';
-            }
-
-            function stopThinkingBar() {
-                thinkingBar.classList.remove('active');
-                thinkingFill.style.width = '0%';
-            }
-
-            // =============================================================
-            //  AI 决策 (MCTS)
-            // =============================================================
-            function aiMove() {
-                if (gameOver || isAITurn || currentPlayer !== AI_PLAYER) return;
-
-                isAITurn = true;
-                aiStartTime = performance.now();
-                updateStatusText('🤖 AI 思考中', 'idle');
-                startThinkingBar();
-
-                const avail = getAvailableCols(board);
-                if (avail.length === 0) {
-                    isAITurn = false;
-                    stopThinkingBar();
-                    return;
-                }
-
-                // 运行 MCTS，获取最佳列
-                const bestCol = mctsSearch(board, currentPlayer, AI_THINK_TIME, (elapsed, total) => {
-                    const progress = elapsed / total;
-                    updateThinkingBar(progress);
-                });
-
-                // 落子
-                const row = getEmptyRow(board, bestCol);
-                if (row === -1) {
-                    isAITurn = false;
-                    stopThinkingBar();
-                    return;
-                }
-
-                board[row][bestCol] = AI_PLAYER;
-                selectedCol = -1;
-                stopThinkingBar();
-
-                if (checkWin(board, row, bestCol, AI_PLAYER)) {
-                    gameOver = true;
-                    isAITurn = false;
-                    renderBoard();
-                    showResult('AI赢了', 'lose', '🤖 AI 技高一筹！');
-                    return;
-                } else if (isBoardFull(board)) {
-                    gameOver = true;
-                    isAITurn = false;
-                    renderBoard();
-                    showResult('平局', 'draw', '⚖️ 旗鼓相当！');
-                    return;
-                }
-
-                currentPlayer = HUMAN;
-                isAITurn = false;
-                renderBoard();
-                updateStatusText('🧑 你的回合', 'human');
-            }
-
-            // =============================================================
-            //  游戏操作
-            // =============================================================
-            function placeHumanPiece(col) {
-                if (gameOver || isAITurn || currentPlayer !== HUMAN) return false;
-                const row = getEmptyRow(board, col);
-                if (row === -1) return false;
-
-                board[row][col] = HUMAN;
-                selectedCol = -1;
-
-                if (checkWin(board, row, col, HUMAN)) {
-                    gameOver = true;
-                    renderBoard();
-                    showResult('你赢了', 'win', '🎉 恭喜你战胜了 AI！');
-                    return true;
-                } else if (isBoardFull(board)) {
-                    gameOver = true;
-                    renderBoard();
-                    showResult('平局', 'draw', '⚖️ 旗鼓相当！');
-                    return true;
-                }
-
-                currentPlayer = AI_PLAYER;
-                renderBoard();
-                updateStatusText('🤖 AI 思考中', 'idle');
-
-                if (aiTimerId) {
-                    clearTimeout(aiTimerId);
-                    aiTimerId = null;
-                }
-                aiTimerId = setTimeout(() => {
-                    aiTimerId = null;
-                    aiMove();
-                }, 120);
-                return true;
-            }
-
-            function resetGame() {
-                if (aiTimerId) {
-                    clearTimeout(aiTimerId);
-                    aiTimerId = null;
-                }
-                stopThinkingBar();
-                board = createEmptyBoard();
-                gameOver = false;
-                isAITurn = false;
-                selectedCol = -1;
-                currentPlayer = firstPlayer;
-                renderBoard();
-
-                if (firstPlayer === AI_PLAYER) {
-                    updateStatusText('🤖 AI 思考中', 'idle');
-                    aiTimerId = setTimeout(() => {
-                        aiTimerId = null;
-                        aiMove();
-                    }, 200);
-                } else {
-                    updateStatusText('🧑 你的回合', 'human');
-                }
-            }
-
-            // =============================================================
-            //  UI 更新
-            // =============================================================
-            function updateStatusText(text, dotType) {
-                turnText.textContent = text;
-                turnDot.className = 'indicator';
-                if (dotType === 'human') turnDot.classList.add('human');
-                else if (dotType === 'ai') turnDot.classList.add('ai');
-                else turnDot.classList.add('idle');
-            }
-
-            function showResult(title, type, sub) {
-                resultModal.classList.add('open');
-                resultTitle.textContent = title;
-                resultTitle.className = 'result-title ' + type;
-                resultSub.textContent = sub || '';
-                if (type === 'win') resultIcon.textContent = '🎉';
-                else if (type === 'lose') resultIcon.textContent = '😅';
-                else resultIcon.textContent = '🤝';
-            }
-
-            function hideResult() {
-                resultModal.classList.remove('open');
-            }
-
-            function goToInitial() {
-                hideResult();
-                if (aiTimerId) {
-                    clearTimeout(aiTimerId);
-                    aiTimerId = null;
-                }
-                stopThinkingBar();
-                isAITurn = false;
-                isGameActive = false;
-                gameScreen.classList.remove('active');
-                initialScreen.classList.add('active');
-                choiceHuman.classList.add('active');
-                choiceAi.classList.remove('active');
-                firstPlayer = HUMAN;
-                currentPlayer = HUMAN;
-                board = createEmptyBoard();
-                gameOver = false;
-                selectedCol = -1;
-                renderBoard();
-            }
-
-            function startGame() {
-                if (choiceAi.classList.contains('active')) {
-                    firstPlayer = AI_PLAYER;
-                } else {
-                    firstPlayer = HUMAN;
-                }
-                board = createEmptyBoard();
-                gameOver = false;
-                isAITurn = false;
-                selectedCol = -1;
-                currentPlayer = firstPlayer;
-                isGameActive = true;
-
-                initialScreen.classList.remove('active');
-                gameScreen.classList.add('active');
-                renderBoard();
-
-                if (firstPlayer === AI_PLAYER) {
-                    updateStatusText('🤖 AI 思考中', 'idle');
-                    if (aiTimerId) {
-                        clearTimeout(aiTimerId);
-                        aiTimerId = null;
-                    }
-                    aiTimerId = setTimeout(() => {
-                        aiTimerId = null;
-                        aiMove();
-                    }, 300);
-                } else {
-                    updateStatusText('🧑 你的回合', 'human');
-                }
             }
 
             // =============================================================
@@ -1067,8 +1037,8 @@
             initialScreen.classList.add('active');
             gameScreen.classList.remove('active');
 
-            console.log('🪟 屏风式四子棋 v2.0 (MCTS) 已加载');
-            console.log('📖 核心算法: 蒙特卡洛树搜索 (MCTS), 思考时间 3 秒');
+            console.log('🪟 屏风式四子棋 v2.1 (启发式MC) 已加载');
+            console.log('📖 核心算法: 净胜率蒙特卡洛 + 启发式走子 (攻防+中心倾向)');
             console.log('📖 按 R 键重新开始，ESC 关闭弹窗');
         })();
     </script>
