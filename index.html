@@ -3,18 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>屏风式四子棋 v2.0</title>
+    <title>屏风式四子棋 v2.0 (MCTS)</title>
     <style>
-        /* ===== 全局重置 & 基础 ===== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
+        /* ===== 全局重置 & 基础 (与原版相同) ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
-            font-family: 'Segoe UI', 'PingFang SC', Roboto, 'Helvetica Neue', sans-serif;
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
             background: linear-gradient(145deg, #1a2639 0%, #2a3a5e 100%);
             min-height: 100vh;
             display: flex;
@@ -24,72 +18,34 @@
             padding: 16px;
             margin: 0;
         }
-
         .container {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255,255,255,0.08);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-radius: 36px;
             padding: 28px 24px 32px;
             max-width: 560px;
             width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.10);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.10);
             transition: all 0.3s ease;
             position: relative;
         }
-
-        .screen {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            gap: 18px;
-            animation: fadeIn 0.35s ease;
-        }
-        .screen.active {
-            display: flex;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(16px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
+        .screen { display: none; flex-direction: column; align-items: center; gap: 18px; animation: fadeIn 0.35s ease; }
+        .screen.active { display: flex; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
         .header {
             width: 100%;
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding-bottom: 6px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
         }
-        .header h1 {
-            font-size: 24px;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 1px;
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-        }
-        .header h1 span {
-            color: #f7d44a;
-        }
-        .header h1 .version {
-            font-size: 14px;
-            font-weight: 400;
-            color: rgba(255, 255, 255, 0.40);
-            margin-left: 6px;
-        }
-        .header-actions {
-            display: flex;
-            gap: 10px;
-        }
-
+        .header h1 { font-size: 24px; font-weight: 700; color: #fff; letter-spacing: 1px; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .header h1 span { color: #f7d44a; }
+        .header h1 .version { font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.40); margin-left: 6px; }
+        .header-actions { display: flex; gap: 10px; }
         .btn {
             display: inline-flex;
             align-items: center;
@@ -101,107 +57,43 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
-            background: rgba(255, 255, 255, 0.12);
+            background: rgba(255,255,255,0.12);
             color: #fff;
             backdrop-filter: blur(4px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255,255,255,0.15);
             min-width: 44px;
             min-height: 44px;
             touch-action: manipulation;
         }
-        .btn:hover {
-            background: rgba(255, 255, 255, 0.22);
-            transform: scale(1.02);
-        }
-        .btn:active {
-            transform: scale(0.95);
-        }
-
+        .btn:hover { background: rgba(255,255,255,0.22); transform: scale(1.02); }
+        .btn:active { transform: scale(0.95); }
         .btn-primary {
             background: linear-gradient(135deg, #f7d44a, #f5b342);
             color: #1a2639;
             border-color: transparent;
             font-weight: 700;
-            box-shadow: 0 4px 16px rgba(247, 212, 74, 0.35);
+            box-shadow: 0 4px 16px rgba(247,212,74,0.35);
         }
-        .btn-primary:hover {
-            box-shadow: 0 6px 24px rgba(247, 212, 74, 0.50);
-            transform: translateY(-2px);
-        }
-        .btn-primary:active {
-            transform: scale(0.96) translateY(0);
-        }
-
+        .btn-primary:hover { box-shadow: 0 6px 24px rgba(247,212,74,0.50); transform: translateY(-2px); }
+        .btn-primary:active { transform: scale(0.96) translateY(0); }
         .btn-choice {
-            background: rgba(255, 255, 255, 0.06);
-            border: 2px solid rgba(255, 255, 255, 0.20);
+            background: rgba(255,255,255,0.06);
+            border: 2px solid rgba(255,255,255,0.20);
             padding: 12px 28px;
             font-size: 17px;
             min-width: 100px;
         }
-        .btn-choice.active {
-            border-color: #f7d44a;
-            background: rgba(247, 212, 74, 0.18);
-            box-shadow: 0 0 20px rgba(247, 212, 74, 0.15);
-        }
-        .btn-choice .emoji {
-            margin-right: 8px;
-        }
-
-        .btn-rule {
-            background: rgba(255, 255, 255, 0.06);
-            font-size: 13px;
-            padding: 6px 14px;
-            border-radius: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.10);
-        }
-        .btn-rule:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .btn-restart {
-            background: rgba(255, 255, 255, 0.06);
-            font-size: 13px;
-            padding: 6px 14px;
-            border-radius: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.10);
-        }
-        .btn-restart:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        #initialScreen .subtitle {
-            color: rgba(255, 255, 255, 0.60);
-            font-size: 15px;
-            margin-top: -6px;
-            letter-spacing: 0.5px;
-        }
-        .choice-group {
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin: 8px 0 4px;
-            width: 100%;
-        }
-        .choice-group .btn-choice {
-            flex: 1;
-            min-width: 80px;
-            max-width: 160px;
-        }
-
-        .start-area {
-            margin-top: 8px;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-        }
-        .start-area .btn {
-            min-width: 180px;
-            padding: 14px 32px;
-            font-size: 20px;
-        }
-
+        .btn-choice.active { border-color: #f7d44a; background: rgba(247,212,74,0.18); box-shadow: 0 0 20px rgba(247,212,74,0.15); }
+        .btn-choice .emoji { margin-right: 8px; }
+        .btn-rule { background: rgba(255,255,255,0.06); font-size: 13px; padding: 6px 14px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.10); }
+        .btn-rule:hover { background: rgba(255,255,255,0.15); }
+        .btn-restart { background: rgba(255,255,255,0.06); font-size: 13px; padding: 6px 14px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.10); }
+        .btn-restart:hover { background: rgba(255,255,255,0.15); }
+        #initialScreen .subtitle { color: rgba(255,255,255,0.60); font-size: 15px; margin-top: -6px; letter-spacing: 0.5px; }
+        .choice-group { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin: 8px 0 4px; width: 100%; }
+        .choice-group .btn-choice { flex: 1; min-width: 80px; max-width: 160px; }
+        .start-area { margin-top: 8px; width: 100%; display: flex; justify-content: center; }
+        .start-area .btn { min-width: 180px; padding: 14px 32px; font-size: 20px; }
         #gameScreen .game-status {
             width: 100%;
             text-align: center;
@@ -215,43 +107,11 @@
             justify-content: center;
             gap: 10px;
         }
-        .game-status .indicator {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.30);
-            flex-shrink: 0;
-        }
-        .game-status .indicator.human {
-            background: #e74c3c;
-            box-shadow: 0 0 12px rgba(231, 76, 60, 0.5);
-        }
-        .game-status .indicator.ai {
-            background: #f1c40f;
-            box-shadow: 0 0 12px rgba(241, 196, 15, 0.5);
-        }
-        .game-status .indicator.idle {
-            background: rgba(255, 255, 255, 0.15);
-        }
-        .game-status .thinking-dots::after {
-            content: '...';
-            animation: dots 1.2s steps(3, end) infinite;
-        }
-        @keyframes dots {
-            0% { content: ''; }
-            33% { content: '.'; }
-            66% { content: '..'; }
-            100% { content: '...'; }
-        }
-
-        .board-wrapper {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            padding: 4px 0;
-            touch-action: none;
-        }
+        .game-status .indicator { display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.30); flex-shrink: 0; }
+        .game-status .indicator.human { background: #e74c3c; box-shadow: 0 0 12px rgba(231,76,60,0.5); }
+        .game-status .indicator.ai { background: #f1c40f; box-shadow: 0 0 12px rgba(241,196,15,0.5); }
+        .game-status .indicator.idle { background: rgba(255,255,255,0.15); }
+        .board-wrapper { width: 100%; display: flex; justify-content: center; padding: 4px 0; touch-action: none; }
         #boardCanvas {
             width: 100%;
             height: auto;
@@ -259,20 +119,16 @@
             max-width: 480px;
             background: #1a2a4a;
             border-radius: 24px;
-            box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.4), 0 12px 40px rgba(0, 0, 0, 0.5);
+            box-shadow: inset 0 -6px 0 rgba(0,0,0,0.4), 0 12px 40px rgba(0,0,0,0.5);
             touch-action: none;
             cursor: pointer;
             display: block;
-            border: 2px solid rgba(255, 255, 255, 0.10);
+            border: 2px solid rgba(255,255,255,0.10);
         }
-
         .modal-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.65);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.65);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             display: none;
@@ -282,10 +138,7 @@
             padding: 24px;
             animation: fadeIn 0.3s ease;
         }
-        .modal-overlay.open {
-            display: flex;
-        }
-
+        .modal-overlay.open { display: flex; }
         .modal-box {
             background: linear-gradient(145deg, #2a3a5e, #1a2639);
             border-radius: 32px;
@@ -293,58 +146,22 @@
             max-width: 380px;
             width: 100%;
             text-align: center;
-            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.10);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.10);
             animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        @keyframes popIn {
-            from {
-                opacity: 0;
-                transform: scale(0.85);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        .modal-box .result-icon {
-            font-size: 56px;
-            margin-bottom: 8px;
-        }
-        .modal-box .result-title {
-            font-size: 32px;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 4px;
-        }
-        .modal-box .result-title.win {
-            color: #f7d44a;
-        }
-        .modal-box .result-title.lose {
-            color: #e74c3c;
-        }
-        .modal-box .result-title.draw {
-            color: #95a5a6;
-        }
-        .modal-box .result-sub {
-            color: rgba(255, 255, 255, 0.50);
-            font-size: 15px;
-            margin-bottom: 20px;
-        }
-        .modal-box .btn {
-            min-width: 120px;
-            padding: 12px 28px;
-            font-size: 17px;
-        }
-
+        @keyframes popIn { from { opacity:0; transform:scale(0.85); } to { opacity:1; transform:scale(1); } }
+        .modal-box .result-icon { font-size: 56px; margin-bottom: 8px; }
+        .modal-box .result-title { font-size: 32px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+        .modal-box .result-title.win { color: #f7d44a; }
+        .modal-box .result-title.lose { color: #e74c3c; }
+        .modal-box .result-title.draw { color: #95a5a6; }
+        .modal-box .result-sub { color: rgba(255,255,255,0.50); font-size: 15px; margin-bottom: 20px; }
+        .modal-box .btn { min-width: 120px; padding: 12px 28px; font-size: 17px; }
         .rules-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.60);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.60);
             backdrop-filter: blur(6px);
             -webkit-backdrop-filter: blur(6px);
             display: none;
@@ -353,10 +170,7 @@
             z-index: 2000;
             padding: 24px;
         }
-        .rules-overlay.open {
-            display: flex;
-        }
-
+        .rules-overlay.open { display: flex; }
         .rules-box {
             background: linear-gradient(145deg, #2a3a5e, #1a2639);
             border-radius: 32px;
@@ -365,141 +179,52 @@
             width: 100%;
             max-height: 80vh;
             overflow-y: auto;
-            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.10);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.10);
             animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .rules-box h2 {
-            color: #f7d44a;
-            font-size: 24px;
-            margin-bottom: 14px;
-            text-align: center;
+        .rules-box h2 { color: #f7d44a; font-size: 24px; margin-bottom: 14px; text-align: center; }
+        .rules-box p { color: rgba(255,255,255,0.80); font-size: 15px; line-height: 1.7; margin-bottom: 12px; }
+        .rules-box ul { color: rgba(255,255,255,0.75); font-size: 14px; line-height: 1.8; padding-left: 22px; margin-bottom: 16px; }
+        .rules-box ul li { margin-bottom: 4px; }
+        .rules-box .btn { margin-top: 8px; width: 100%; padding: 12px; font-size: 16px; }
+        .rules-box .highlight { color: #f7d44a; font-weight: 600; }
+        @media (max-width:480px) {
+            .container { padding: 18px 14px 22px; border-radius: 28px; }
+            .header h1 { font-size: 20px; }
+            .header h1 .version { font-size: 12px; }
+            .btn { font-size: 13px; padding: 8px 14px; min-height: 40px; }
+            .btn-choice { font-size: 15px; padding: 10px 16px; min-width: 70px; }
+            .choice-group { gap: 10px; }
+            .start-area .btn { min-width: 140px; padding: 12px 24px; font-size: 17px; }
+            #gameScreen .game-status { font-size: 15px; min-height: 36px; }
+            .modal-box { padding: 28px 20px 22px; }
+            .modal-box .result-title { font-size: 26px; }
+            .rules-box { padding: 24px 18px 20px; }
+            .rules-box h2 { font-size: 20px; }
         }
-        .rules-box p {
-            color: rgba(255, 255, 255, 0.80);
-            font-size: 15px;
-            line-height: 1.7;
-            margin-bottom: 12px;
+        @media (max-width:380px) {
+            .container { padding: 12px 10px 16px; border-radius: 20px; }
+            .header h1 { font-size: 17px; }
+            .header h1 .version { font-size: 10px; }
+            .btn { font-size: 12px; padding: 6px 10px; min-height: 34px; }
+            .btn-choice { font-size: 13px; padding: 8px 12px; min-width: 60px; }
+            #gameScreen .game-status { font-size: 13px; }
         }
-        .rules-box ul {
-            color: rgba(255, 255, 255, 0.75);
-            font-size: 14px;
-            line-height: 1.8;
-            padding-left: 22px;
-            margin-bottom: 16px;
-        }
-        .rules-box ul li {
-            margin-bottom: 4px;
-        }
-        .rules-box .btn {
-            margin-top: 8px;
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-        }
-        .rules-box .highlight {
-            color: #f7d44a;
-            font-weight: 600;
-        }
-
-        @media (max-width: 480px) {
-            .container {
-                padding: 18px 14px 22px;
-                border-radius: 28px;
-            }
-            .header h1 {
-                font-size: 20px;
-            }
-            .header h1 .version {
-                font-size: 12px;
-            }
-            .btn {
-                font-size: 13px;
-                padding: 8px 14px;
-                min-height: 40px;
-            }
-            .btn-choice {
-                font-size: 15px;
-                padding: 10px 16px;
-                min-width: 70px;
-            }
-            .choice-group {
-                gap: 10px;
-            }
-            .start-area .btn {
-                min-width: 140px;
-                padding: 12px 24px;
-                font-size: 17px;
-            }
-            #gameScreen .game-status {
-                font-size: 15px;
-                min-height: 36px;
-            }
-            .modal-box {
-                padding: 28px 20px 22px;
-            }
-            .modal-box .result-title {
-                font-size: 26px;
-            }
-            .rules-box {
-                padding: 24px 18px 20px;
-            }
-            .rules-box h2 {
-                font-size: 20px;
-            }
-        }
-
-        @media (max-width: 380px) {
-            .container {
-                padding: 12px 10px 16px;
-                border-radius: 20px;
-            }
-            .header h1 {
-                font-size: 17px;
-            }
-            .header h1 .version {
-                font-size: 10px;
-            }
-            .btn {
-                font-size: 12px;
-                padding: 6px 10px;
-                min-height: 34px;
-            }
-            .btn-choice {
-                font-size: 13px;
-                padding: 8px 12px;
-                min-width: 60px;
-            }
-            #gameScreen .game-status {
-                font-size: 13px;
-            }
-        }
-
-        .rules-box::-webkit-scrollbar {
-            width: 4px;
-        }
-        .rules-box::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-        }
-        .rules-box::-webkit-scrollbar-thumb {
-            background: rgba(247, 212, 74, 0.30);
-            border-radius: 4px;
-        }
-
+        .rules-box::-webkit-scrollbar { width:4px; }
+        .rules-box::-webkit-scrollbar-track { background:rgba(255,255,255,0.05); border-radius:4px; }
+        .rules-box::-webkit-scrollbar-thumb { background:rgba(247,212,74,0.30); border-radius:4px; }
         .thinking-bar {
             width: 100%;
             height: 3px;
-            background: rgba(255, 255, 255, 0.06);
+            background: rgba(255,255,255,0.06);
             border-radius: 4px;
             overflow: hidden;
             margin-top: -6px;
             opacity: 0;
             transition: opacity 0.3s;
         }
-        .thinking-bar.active {
-            opacity: 1;
-        }
+        .thinking-bar.active { opacity: 1; }
         .thinking-bar .fill {
             height: 100%;
             width: 0%;
@@ -510,19 +235,16 @@
     </style>
 </head>
 <body>
-
     <div class="container" id="app">
-
-        <!-- ===== 初始界面 ===== -->
+        <!-- 初始界面 -->
         <div class="screen active" id="initialScreen">
             <div class="header">
-                <h1>🪟 屏风式<span>四子棋</span><span class="version">v2.0</span></h1>
+                <h1>🪟 屏风式<span>四子棋</span><span class="version">v2.0 (MCTS)</span></h1>
                 <div class="header-actions">
                     <button class="btn btn-rule" id="initRuleBtn">📖 规则</button>
                 </div>
             </div>
-            <p class="subtitle">✨ 与 AI 对弈 · 净胜率蒙特卡洛决策</p>
-
+            <p class="subtitle">✨ 与 AI 对弈 · 蒙特卡洛树搜索 (MCTS)</p>
             <div class="choice-group">
                 <button class="btn btn-choice active" data-choice="human" id="choiceHuman">
                     <span class="emoji">🧑</span> 我先下
@@ -531,38 +253,34 @@
                     <span class="emoji">🤖</span> AI 先下
                 </button>
             </div>
-
             <div class="start-area">
                 <button class="btn btn-primary" id="startGameBtn">🚀 开始对局</button>
             </div>
         </div>
 
-        <!-- ===== 对局界面 ===== -->
+        <!-- 对局界面 -->
         <div class="screen" id="gameScreen">
             <div class="header">
-                <h1>🪟 四子棋 <span class="version">v2.0</span></h1>
+                <h1>🪟 四子棋 <span class="version">v2.0 (MCTS)</span></h1>
                 <div class="header-actions">
                     <button class="btn btn-restart" id="restartBtn">🔄 重新开始</button>
                     <button class="btn btn-rule" id="gameRuleBtn">📖 规则</button>
                 </div>
             </div>
-
             <div class="game-status" id="gameStatus">
                 <span class="indicator human" id="turnDot"></span>
                 <span id="turnText">你的回合</span>
             </div>
-
             <div class="thinking-bar" id="thinkingBar">
                 <div class="fill" id="thinkingFill"></div>
             </div>
-
             <div class="board-wrapper">
                 <canvas id="boardCanvas"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- ===== 结果弹窗 ===== -->
+    <!-- 结果弹窗 -->
     <div class="modal-overlay" id="resultModal">
         <div class="modal-box">
             <div class="result-icon" id="resultIcon">🎉</div>
@@ -572,7 +290,7 @@
         </div>
     </div>
 
-    <!-- ===== 规则弹窗 ===== -->
+    <!-- 规则弹窗 -->
     <div class="rules-overlay" id="rulesModal">
         <div class="rules-box">
             <h2>📖 游戏规则</h2>
@@ -581,8 +299,8 @@
                 <li>棋盘为 <strong>7 列 × 6 行</strong>，棋子从顶部垂直落下，堆叠在底部。</li>
                 <li>双方轮流落子，率先在 <strong>水平、垂直或对角线</strong> 方向连成 <strong>四子</strong> 的一方获胜。</li>
                 <li>若棋盘填满仍未分胜负，则为 <strong>平局</strong>。</li>
-                <li>本程序 AI 使用 <strong>净胜率蒙特卡洛模拟</strong> 算法，思考时间约 <strong>3 秒</strong>。</li>
-                <li>AI 对每个可能落子点进行大量随机模拟，统计 <span class="highlight">胜局数 - 负局数</span> 作为评估指标，兼顾进攻与防守。</li>
+                <li>本程序 AI 使用 <strong>蒙特卡洛树搜索 (MCTS)</strong> 算法，思考时间约 <strong>3 秒</strong>。</li>
+                <li>MCTS 通过选择 (UCB)、扩展、模拟和回溯，智能评估每个落子点的长期价值。</li>
                 <li>鼠标悬停 / 触摸滑动时显示 <strong>竖虚线</strong> 指示落子位置。</li>
             </ul>
             <button class="btn btn-primary" id="rulesCloseBtn">知道了</button>
@@ -601,8 +319,8 @@
             const EMPTY = 0;
             const HUMAN = 1;
             const AI_PLAYER = 2;
-
             const AI_THINK_TIME = 3000; // 3 秒
+            const UCB_C = 1.4;           // 探索常数
 
             // =============================================================
             //  DOM 引用
@@ -611,7 +329,6 @@
             const gameScreen = document.getElementById('gameScreen');
             const canvas = document.getElementById('boardCanvas');
             const ctx = canvas.getContext('2d');
-
             const choiceHuman = document.getElementById('choiceHuman');
             const choiceAi = document.getElementById('choiceAi');
             const startBtn = document.getElementById('startGameBtn');
@@ -641,10 +358,9 @@
             let isAITurn = false;
             let aiTimerId = null;
             let isGameActive = false;
-            let thinkingIntervalId = null;
             let aiStartTime = 0;
 
-            // Canvas 尺寸 (逻辑像素)
+            // Canvas 尺寸
             const CELL_SIZE = 60;
             const PADDING = 14;
             const BOARD_W = PADDING * 2 + COLS * CELL_SIZE;
@@ -686,37 +402,198 @@
             // =============================================================
             function checkWin(b, row, col, player) {
                 if (b[row][col] !== player) return false;
-
-                const directions = [
-                    [0, 1],
-                    [1, 0],
-                    [1, 1],
-                    [1, -1]
-                ];
-
+                const directions = [[0,1],[1,0],[1,1],[1,-1]];
                 for (const [dr, dc] of directions) {
                     let count = 1;
                     for (let step = 1; step < 4; step++) {
-                        const nr = row + dr * step,
-                            nc = col + dc * step;
+                        const nr = row + dr * step, nc = col + dc * step;
                         if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) break;
-                        if (b[nr][nc] === player) count++;
-                        else break;
+                        if (b[nr][nc] === player) count++; else break;
                     }
                     for (let step = 1; step < 4; step++) {
-                        const nr = row - dr * step,
-                            nc = col - dc * step;
+                        const nr = row - dr * step, nc = col - dc * step;
                         if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) break;
-                        if (b[nr][nc] === player) count++;
-                        else break;
+                        if (b[nr][nc] === player) count++; else break;
                     }
                     if (count >= 4) return true;
                 }
                 return false;
             }
 
+            // 检查整个棋盘是否已结束（满或有人获胜）
+            function isGameOverBoard(b) {
+                if (isBoardFull(b)) return true;
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        if (b[r][c] !== EMPTY && checkWin(b, r, c, b[r][c])) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            // 获取游戏赢家（AI视角奖励：1 AI赢，-1 AI输，0平，null未结束）
+            function getWinnerReward(b, lastRow, lastCol) {
+                if (isBoardFull(b)) return 0; // 平局
+                if (lastRow !== undefined && lastRow >= 0 && lastCol >= 0) {
+                    const winner = b[lastRow][lastCol];
+                    if (winner === AI_PLAYER) return 1;
+                    else if (winner === HUMAN) return -1;
+                }
+                // 如果不是最后一步赢，但棋盘有赢家（例如根节点），遍历检查
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        if (b[r][c] !== EMPTY && checkWin(b, r, c, b[r][c])) {
+                            if (b[r][c] === AI_PLAYER) return 1;
+                            else return -1;
+                        }
+                    }
+                }
+                return null; // 未结束
+            }
+
             // =============================================================
-            //  棋盘渲染
+            //  随机模拟（从当前状态开始，随机落子直到结束，返回AI视角奖励）
+            // =============================================================
+            function simulateRandomGame(b, currentPlayer) {
+                const sim = copyBoard(b);
+                let player = currentPlayer;
+                let lastRow, lastCol;
+                while (true) {
+                    const avail = getAvailableCols(sim);
+                    if (avail.length === 0) return 0; // 平局
+                    const col = avail[Math.floor(Math.random() * avail.length)];
+                    const row = getEmptyRow(sim, col);
+                    sim[row][col] = player;
+                    lastRow = row; lastCol = col;
+                    if (checkWin(sim, row, col, player)) {
+                        if (player === AI_PLAYER) return 1;
+                        else return -1;
+                    }
+                    player = (player === HUMAN) ? AI_PLAYER : HUMAN;
+                }
+            }
+
+            // =============================================================
+            //  MCTS 节点
+            // =============================================================
+            class MCTSNode {
+                constructor(board, parent, action, player, lastRow, lastCol) {
+                    this.board = board;               // 当前棋盘 (二维数组)
+                    this.parent = parent;             // 父节点 (或 null)
+                    this.action = action;             // 导致此节点的列 (根节点为 -1)
+                    this.player = player;             // 当前轮到谁走 (HUMAN / AI_PLAYER)
+                    this.lastRow = lastRow;           // 最后落子的行 (根节点 -1)
+                    this.lastCol = lastCol;           // 最后落子的列 (根节点 -1)
+                    this.children = [];
+                    this.untried_actions = getAvailableCols(board);
+                    this.visits = 0;
+                    this.wins = 0;                    // 累计奖励 (AI视角)
+                    // 判断是否终止
+                    this.terminal = isGameOverBoard(board);
+                }
+
+                isFullyExpanded() {
+                    return this.untried_actions.length === 0;
+                }
+
+                // 选择UCB最大的子节点
+                bestChild(C) {
+                    let best = null;
+                    let bestValue = -Infinity;
+                    const logParentVisits = Math.log(this.visits || 1);
+                    for (const child of this.children) {
+                        const exploit = child.wins / (child.visits || 1);
+                        const explore = C * Math.sqrt(logParentVisits / (child.visits || 1));
+                        const ucb = exploit + explore;
+                        if (ucb > bestValue) {
+                            bestValue = ucb;
+                            best = child;
+                        }
+                    }
+                    return best;
+                }
+
+                // 扩展：随机选择一个未尝试的动作，创建子节点
+                expand() {
+                    if (this.untried_actions.length === 0) return null;
+                    const idx = Math.floor(Math.random() * this.untried_actions.length);
+                    const action = this.untried_actions.splice(idx, 1)[0];
+                    const newBoard = copyBoard(this.board);
+                    const row = getEmptyRow(newBoard, action);
+                    newBoard[row][action] = this.player;
+                    const newPlayer = (this.player === HUMAN) ? AI_PLAYER : HUMAN;
+                    const child = new MCTSNode(newBoard, this, action, newPlayer, row, action);
+                    this.children.push(child);
+                    return child;
+                }
+            }
+
+            // =============================================================
+            //  MCTS 主搜索
+            // =============================================================
+            function mctsSearch(board, currentPlayer, timeLimit, progressCallback) {
+                const root = new MCTSNode(board, null, -1, currentPlayer, -1, -1);
+                const startTime = performance.now();
+
+                while (performance.now() - startTime < timeLimit) {
+                    // --- 选择 ---
+                    let node = root;
+                    while (!node.terminal && node.isFullyExpanded() && node.children.length > 0) {
+                        node = node.bestChild(UCB_C);
+                    }
+
+                    // --- 扩展 ---
+                    if (!node.terminal && !node.isFullyExpanded()) {
+                        const child = node.expand();
+                        if (child) node = child;
+                    }
+
+                    // --- 模拟 ---
+                    let reward = 0;
+                    if (!node.terminal) {
+                        reward = simulateRandomGame(node.board, node.player);
+                    } else {
+                        // 终止节点直接计算奖励（利用最后落子信息）
+                        const r = getWinnerReward(node.board, node.lastRow, node.lastCol);
+                        if (r !== null) reward = r;
+                        else reward = 0; // 安全兜底
+                    }
+
+                    // --- 回溯 ---
+                    while (node !== null) {
+                        node.visits++;
+                        node.wins += reward;
+                        node = node.parent;
+                    }
+
+                    // 更新进度条
+                    if (progressCallback) {
+                        const elapsed = performance.now() - startTime;
+                        progressCallback(elapsed, timeLimit);
+                    }
+                }
+
+                // 选择访问次数最多的子节点作为最终落子
+                let bestChild = null;
+                let bestVisits = -1;
+                for (const child of root.children) {
+                    if (child.visits > bestVisits) {
+                        bestVisits = child.visits;
+                        bestChild = child;
+                    }
+                }
+                if (bestChild === null) {
+                    // 无子节点（极少情况），随机选一列
+                    const avail = getAvailableCols(board);
+                    return avail[Math.floor(Math.random() * avail.length)];
+                }
+                return bestChild.action;
+            }
+
+            // =============================================================
+            //  棋盘渲染 (与原版相同)
             // =============================================================
             function resizeCanvas() {
                 const rect = canvas.getBoundingClientRect();
@@ -725,17 +602,11 @@
                 canvas.width = BOARD_W;
                 canvas.height = BOARD_H;
                 canvas.style.height = h + 'px';
-                if (canvas.width !== BOARD_W || canvas.height !== BOARD_H) {
-                    canvas.width = BOARD_W;
-                    canvas.height = BOARD_H;
-                }
             }
 
             function drawBoard() {
-                const w = canvas.width,
-                    h = canvas.height;
+                const w = canvas.width, h = canvas.height;
                 ctx.clearRect(0, 0, w, h);
-
                 const grad = ctx.createLinearGradient(0, 0, 0, h);
                 grad.addColorStop(0, '#1a2a4a');
                 grad.addColorStop(1, '#0f1a30');
@@ -744,23 +615,22 @@
 
                 for (let r = 0; r < ROWS; r++) {
                     for (let c = 0; c < COLS; c++) {
-                        const x = PADDING + c * CELL_SIZE + CELL_SIZE / 2;
-                        const y = PADDING + r * CELL_SIZE + CELL_SIZE / 2;
+                        const x = PADDING + c * CELL_SIZE + CELL_SIZE/2;
+                        const y = PADDING + r * CELL_SIZE + CELL_SIZE/2;
                         ctx.beginPath();
-                        ctx.arc(x, y, RADIUS + 2, 0, Math.PI * 2);
+                        ctx.arc(x, y, RADIUS+2, 0, Math.PI*2);
                         ctx.fillStyle = '#0f1a30';
                         ctx.fill();
                         ctx.shadowColor = 'rgba(0,0,0,0.4)';
                         ctx.shadowBlur = 6;
-
                         const val = board[r][c];
                         if (val === HUMAN) {
-                            const g = ctx.createRadialGradient(x - 4, y - 4, 4, x, y, RADIUS);
+                            const g = ctx.createRadialGradient(x-4, y-4, 4, x, y, RADIUS);
                             g.addColorStop(0, '#ff6b6b');
                             g.addColorStop(0.7, '#e74c3c');
                             g.addColorStop(1, '#a93226');
                             ctx.beginPath();
-                            ctx.arc(x, y, RADIUS, 0, Math.PI * 2);
+                            ctx.arc(x, y, RADIUS, 0, Math.PI*2);
                             ctx.fillStyle = g;
                             ctx.fill();
                             ctx.shadowBlur = 12;
@@ -768,16 +638,16 @@
                             ctx.fill();
                             ctx.shadowBlur = 0;
                             ctx.beginPath();
-                            ctx.arc(x - 5, y - 6, 6, 0, Math.PI * 2);
+                            ctx.arc(x-5, y-6, 6, 0, Math.PI*2);
                             ctx.fillStyle = 'rgba(255,255,255,0.20)';
                             ctx.fill();
                         } else if (val === AI_PLAYER) {
-                            const g = ctx.createRadialGradient(x - 4, y - 4, 4, x, y, RADIUS);
+                            const g = ctx.createRadialGradient(x-4, y-4, 4, x, y, RADIUS);
                             g.addColorStop(0, '#ffe066');
                             g.addColorStop(0.7, '#f1c40f');
                             g.addColorStop(1, '#d4a800');
                             ctx.beginPath();
-                            ctx.arc(x, y, RADIUS, 0, Math.PI * 2);
+                            ctx.arc(x, y, RADIUS, 0, Math.PI*2);
                             ctx.fillStyle = g;
                             ctx.fill();
                             ctx.shadowBlur = 12;
@@ -785,36 +655,36 @@
                             ctx.fill();
                             ctx.shadowBlur = 0;
                             ctx.beginPath();
-                            ctx.arc(x - 5, y - 6, 6, 0, Math.PI * 2);
+                            ctx.arc(x-5, y-6, 6, 0, Math.PI*2);
                             ctx.fillStyle = 'rgba(255,255,255,0.25)';
                             ctx.fill();
                         } else {
                             ctx.shadowBlur = 0;
-                            const g2 = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, RADIUS);
+                            const g2 = ctx.createRadialGradient(x-3, y-3, 2, x, y, RADIUS);
                             g2.addColorStop(0, '#2a3a5e');
                             g2.addColorStop(1, '#0f1a30');
                             ctx.beginPath();
-                            ctx.arc(x, y, RADIUS, 0, Math.PI * 2);
+                            ctx.arc(x, y, RADIUS, 0, Math.PI*2);
                             ctx.fillStyle = g2;
                             ctx.fill();
                             ctx.beginPath();
-                            ctx.arc(x - 4, y - 5, 4, 0, Math.PI * 2);
+                            ctx.arc(x-4, y-5, 4, 0, Math.PI*2);
                             ctx.fillStyle = 'rgba(255,255,255,0.04)';
                             ctx.fill();
                         }
                     }
                 }
 
-                // ---- 竖虚线指示器 ----
+                // 竖虚线指示器
                 if (selectedCol >= 0 && selectedCol < COLS && !gameOver && !isAITurn && currentPlayer === HUMAN) {
                     const col = selectedCol;
                     const emptyRow = getEmptyRow(board, col);
                     if (emptyRow !== -1) {
-                        const x = PADDING + col * CELL_SIZE + CELL_SIZE / 2;
+                        const x = PADDING + col * CELL_SIZE + CELL_SIZE/2;
                         const topY = PADDING;
-                        const bottomY = PADDING + emptyRow * CELL_SIZE + CELL_SIZE / 2;
+                        const bottomY = PADDING + emptyRow * CELL_SIZE + CELL_SIZE/2;
                         ctx.save();
-                        ctx.setLineDash([6, 8]);
+                        ctx.setLineDash([6,8]);
                         ctx.strokeStyle = 'rgba(255,255,255,0.55)';
                         ctx.lineWidth = 2.5;
                         ctx.shadowBlur = 10;
@@ -829,62 +699,40 @@
                         grad2.addColorStop(1, 'rgba(255,255,255,0)');
                         ctx.fillStyle = grad2;
                         ctx.beginPath();
-                        ctx.arc(x, topY, 18, 0, Math.PI * 2);
+                        ctx.arc(x, topY, 18, 0, Math.PI*2);
                         ctx.fill();
                     }
                 }
-
                 ctx.shadowBlur = 0;
                 ctx.strokeStyle = 'rgba(255,255,255,0.06)';
                 ctx.lineWidth = 1;
-                ctx.strokeRect(4, 4, w - 8, h - 8);
+                ctx.strokeRect(4, 4, w-8, h-8);
+            }
+
+            function renderBoard() {
+                resizeCanvas();
+                drawBoard();
             }
 
             // =============================================================
-            //  模拟引擎
+            //  进度条控制
             // =============================================================
-            /**
-             * 模拟一局从 AI 在指定列落子开始的完整对局。
-             * 返回 { result: 'win' | 'lose' | 'draw', steps: number }
-             */
-            function simulateGame(b, col) {
-                const sim = copyBoard(b);
-                const row = getEmptyRow(sim, col);
-                if (row === -1) return null;
+            function startThinkingBar() {
+                thinkingBar.classList.add('active');
+                thinkingFill.style.width = '0%';
+            }
 
-                // AI 落子
-                sim[row][col] = AI_PLAYER;
-                let steps = 1;
+            function updateThinkingBar(progress) {
+                thinkingFill.style.width = Math.min(progress, 1) * 100 + '%';
+            }
 
-                if (checkWin(sim, row, col, AI_PLAYER)) {
-                    return { result: 'win', steps: steps };
-                }
-
-                let player = HUMAN;
-                while (true) {
-                    const avail = getAvailableCols(sim);
-                    if (avail.length === 0) {
-                        return { result: 'draw', steps: steps };
-                    }
-
-                    const randCol = avail[Math.floor(Math.random() * avail.length)];
-                    const randRow = getEmptyRow(sim, randCol);
-                    sim[randRow][randCol] = player;
-                    steps++;
-
-                    if (checkWin(sim, randRow, randCol, player)) {
-                        if (player === AI_PLAYER) {
-                            return { result: 'win', steps: steps };
-                        } else {
-                            return { result: 'lose', steps: steps };
-                        }
-                    }
-                    player = (player === HUMAN) ? AI_PLAYER : HUMAN;
-                }
+            function stopThinkingBar() {
+                thinkingBar.classList.remove('active');
+                thinkingFill.style.width = '0%';
             }
 
             // =============================================================
-            //  AI 决策：净胜率 (Win - Lose) / Count
+            //  AI 决策 (MCTS)
             // =============================================================
             function aiMove() {
                 if (gameOver || isAITurn || currentPlayer !== AI_PLAYER) return;
@@ -901,53 +749,13 @@
                     return;
                 }
 
-                const stats = {};
-                for (const c of avail) {
-                    stats[c] = { wins: 0, loses: 0, count: 0 };
-                }
+                // 运行 MCTS，获取最佳列
+                const bestCol = mctsSearch(board, currentPlayer, AI_THINK_TIME, (elapsed, total) => {
+                    const progress = elapsed / total;
+                    updateThinkingBar(progress);
+                });
 
-                const endTime = performance.now() + AI_THINK_TIME;
-
-                while (performance.now() < endTime) {
-                    for (const c of avail) {
-                        if (performance.now() >= endTime) break;
-                        const result = simulateGame(board, c);
-                        if (result !== null) {
-                            stats[c].count++;
-                            if (result.result === 'win') {
-                                stats[c].wins++;
-                            } else if (result.result === 'lose') {
-                                stats[c].loses++;
-                            }
-                            // 平局不计数
-                        }
-                        // 更新进度条
-                        const elapsed = performance.now() - aiStartTime;
-                        const progress = Math.min(elapsed / AI_THINK_TIME, 1);
-                        updateThinkingBar(progress);
-                    }
-                }
-
-                // 选择净胜率最高的列
-                let bestCol = avail[0];
-                let bestScore = -Infinity;
-
-                for (const c of avail) {
-                    const s = stats[c];
-                    if (s.count === 0) continue;
-                    const netWinRate = (s.wins - s.loses) / s.count;
-                    if (netWinRate > bestScore) {
-                        bestScore = netWinRate;
-                        bestCol = c;
-                    }
-                }
-
-                // 保底：如果所有列都无模拟（极少），随机选
-                if (bestScore === -Infinity) {
-                    bestCol = avail[Math.floor(Math.random() * avail.length)];
-                }
-
-                // ---- AI 落子 ----
+                // 落子
                 const row = getEmptyRow(board, bestCol);
                 if (row === -1) {
                     isAITurn = false;
@@ -980,36 +788,10 @@
             }
 
             // =============================================================
-            //  思考进度条控制
-            // =============================================================
-            function startThinkingBar() {
-                thinkingBar.classList.add('active');
-                thinkingFill.style.width = '0%';
-                if (thinkingIntervalId) {
-                    cancelAnimationFrame(thinkingIntervalId);
-                    thinkingIntervalId = null;
-                }
-            }
-
-            function updateThinkingBar(progress) {
-                thinkingFill.style.width = (progress * 100) + '%';
-            }
-
-            function stopThinkingBar() {
-                thinkingBar.classList.remove('active');
-                thinkingFill.style.width = '0%';
-                if (thinkingIntervalId) {
-                    cancelAnimationFrame(thinkingIntervalId);
-                    thinkingIntervalId = null;
-                }
-            }
-
-            // =============================================================
             //  游戏操作
             // =============================================================
             function placeHumanPiece(col) {
                 if (gameOver || isAITurn || currentPlayer !== HUMAN) return false;
-
                 const row = getEmptyRow(board, col);
                 if (row === -1) return false;
 
@@ -1040,7 +822,6 @@
                     aiTimerId = null;
                     aiMove();
                 }, 120);
-
                 return true;
             }
 
@@ -1079,23 +860,14 @@
                 else turnDot.classList.add('idle');
             }
 
-            function renderBoard() {
-                resizeCanvas();
-                drawBoard();
-            }
-
             function showResult(title, type, sub) {
                 resultModal.classList.add('open');
                 resultTitle.textContent = title;
                 resultTitle.className = 'result-title ' + type;
                 resultSub.textContent = sub || '';
-                if (type === 'win') {
-                    resultIcon.textContent = '🎉';
-                } else if (type === 'lose') {
-                    resultIcon.textContent = '😅';
-                } else {
-                    resultIcon.textContent = '🤝';
-                }
+                if (type === 'win') resultIcon.textContent = '🎉';
+                else if (type === 'lose') resultIcon.textContent = '😅';
+                else resultIcon.textContent = '🤝';
             }
 
             function hideResult() {
@@ -1138,7 +910,6 @@
 
                 initialScreen.classList.remove('active');
                 gameScreen.classList.add('active');
-
                 renderBoard();
 
                 if (firstPlayer === AI_PLAYER) {
@@ -1187,15 +958,11 @@
                     selectedCol = col;
                     renderBoard();
                 }
-                if (e.touches) {
-                    e.preventDefault();
-                }
+                if (e.touches) e.preventDefault();
             }
 
             function handlePointerDown(e) {
-                if (e.touches) {
-                    e.preventDefault();
-                }
+                if (e.touches) e.preventDefault();
             }
 
             function handlePointerUp(e) {
@@ -1222,9 +989,7 @@
                 }
                 selectedCol = -1;
                 renderBoard();
-                if (e.changedTouches) {
-                    e.preventDefault();
-                }
+                if (e.changedTouches) e.preventDefault();
             }
 
             function handlePointerLeave(e) {
@@ -1234,17 +999,10 @@
                 }
             }
 
-            // =============================================================
-            //  事件绑定
-            // =============================================================
+            // 事件绑定
             canvas.addEventListener('mousemove', handlePointerMove);
-            canvas.addEventListener('click', function(e) {
-                if (!e.touches) {
-                    handlePointerUp(e);
-                }
-            });
+            canvas.addEventListener('click', function(e) { if (!e.touches) handlePointerUp(e); });
             canvas.addEventListener('mouseleave', handlePointerLeave);
-
             canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
             canvas.addEventListener('touchmove', handlePointerMove, { passive: false });
             canvas.addEventListener('touchend', handlePointerUp, { passive: false });
@@ -1258,13 +1016,11 @@
             window.addEventListener('resize', function() {
                 if (gameScreen.classList.contains('active')) {
                     clearTimeout(resizeTimer);
-                    resizeTimer = setTimeout(() => {
-                        renderBoard();
-                    }, 100);
+                    resizeTimer = setTimeout(() => { renderBoard(); }, 100);
                 }
             });
 
-            // ---- 按钮事件 ----
+            // 按钮事件
             choiceHuman.addEventListener('click', function() {
                 choiceHuman.classList.add('active');
                 choiceAi.classList.remove('active');
@@ -1273,32 +1029,20 @@
                 choiceAi.classList.add('active');
                 choiceHuman.classList.remove('active');
             });
-
             startBtn.addEventListener('click', startGame);
             restartBtn.addEventListener('click', goToInitial);
             resultOkBtn.addEventListener('click', goToInitial);
 
-            function openRules() {
-                rulesModal.classList.add('open');
-            }
-
-            function closeRules() {
-                rulesModal.classList.remove('open');
-            }
-
+            function openRules() { rulesModal.classList.add('open'); }
+            function closeRules() { rulesModal.classList.remove('open'); }
             initRuleBtn.addEventListener('click', openRules);
             gameRuleBtn.addEventListener('click', openRules);
             rulesCloseBtn.addEventListener('click', closeRules);
-            rulesModal.addEventListener('click', function(e) {
-                if (e.target === this) closeRules();
-            });
+            rulesModal.addEventListener('click', function(e) { if (e.target === this) closeRules(); });
 
-            // ---- 键盘快捷键 ----
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'r' || e.key === 'R') {
-                    if (gameScreen.classList.contains('active')) {
-                        goToInitial();
-                    }
+                    if (gameScreen.classList.contains('active')) goToInitial();
                 }
                 if (e.key === 'Escape') {
                     if (rulesModal.classList.contains('open')) closeRules();
@@ -1323,12 +1067,10 @@
             initialScreen.classList.add('active');
             gameScreen.classList.remove('active');
 
-            console.log('🪟 屏风式四子棋 v2.0 (净胜率蒙特卡洛) 已加载');
-            console.log('📖 核心算法: 净胜率 (Win-Lose)/总模拟数, 思考时间 3 秒');
+            console.log('🪟 屏风式四子棋 v2.0 (MCTS) 已加载');
+            console.log('📖 核心算法: 蒙特卡洛树搜索 (MCTS), 思考时间 3 秒');
             console.log('📖 按 R 键重新开始，ESC 关闭弹窗');
-
         })();
     </script>
-
 </body>
 </html>
