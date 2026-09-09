@@ -25,7 +25,6 @@
             margin: 0;
         }
 
-        /* ===== 通用容器 ===== */
         .container {
             background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(12px);
@@ -40,7 +39,6 @@
             position: relative;
         }
 
-        /* ===== 屏幕切换 ===== */
         .screen {
             display: none;
             flex-direction: column;
@@ -63,7 +61,6 @@
             }
         }
 
-        /* ===== 通用头部 ===== */
         .header {
             width: 100%;
             display: flex;
@@ -93,7 +90,6 @@
             gap: 10px;
         }
 
-        /* ===== 按钮通用 ===== */
         .btn {
             display: inline-flex;
             align-items: center;
@@ -174,7 +170,6 @@
             background: rgba(255, 255, 255, 0.15);
         }
 
-        /* ===== 初始界面 ===== */
         #initialScreen .subtitle {
             color: rgba(255, 255, 255, 0.60);
             font-size: 15px;
@@ -207,7 +202,6 @@
             font-size: 20px;
         }
 
-        /* ===== 对局界面 ===== */
         #gameScreen .game-status {
             width: 100%;
             text-align: center;
@@ -245,21 +239,12 @@
             animation: dots 1.2s steps(3, end) infinite;
         }
         @keyframes dots {
-            0% {
-                content: '';
-            }
-            33% {
-                content: '.';
-            }
-            66% {
-                content: '..';
-            }
-            100% {
-                content: '...';
-            }
+            0% { content: ''; }
+            33% { content: '.'; }
+            66% { content: '..'; }
+            100% { content: '...'; }
         }
 
-        /* ===== 棋盘容器 ===== */
         .board-wrapper {
             width: 100%;
             display: flex;
@@ -281,7 +266,6 @@
             border: 2px solid rgba(255, 255, 255, 0.10);
         }
 
-        /* ===== 结果弹窗 ===== */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -354,7 +338,6 @@
             font-size: 17px;
         }
 
-        /* ===== 规则弹窗 ===== */
         .rules-overlay {
             position: fixed;
             top: 0;
@@ -419,7 +402,6 @@
             font-weight: 600;
         }
 
-        /* ===== 响应式 ===== */
         @media (max-width: 480px) {
             .container {
                 padding: 18px 14px 22px;
@@ -505,7 +487,6 @@
             border-radius: 4px;
         }
 
-        /* AI 思考进度条 (装饰) */
         .thinking-bar {
             width: 100%;
             height: 3px;
@@ -530,9 +511,6 @@
 </head>
 <body>
 
-    <!-- ============================================================ -->
-    <!-- 主容器 -->
-    <!-- ============================================================ -->
     <div class="container" id="app">
 
         <!-- ===== 初始界面 ===== -->
@@ -543,7 +521,7 @@
                     <button class="btn btn-rule" id="initRuleBtn">📖 规则</button>
                 </div>
             </div>
-            <p class="subtitle">✨ 与 AI 对弈 · 收益和智能决策</p>
+            <p class="subtitle">✨ 与 AI 对弈 · 净胜率蒙特卡洛决策</p>
 
             <div class="choice-group">
                 <button class="btn btn-choice active" data-choice="human" id="choiceHuman">
@@ -603,17 +581,14 @@
                 <li>棋盘为 <strong>7 列 × 6 行</strong>，棋子从顶部垂直落下，堆叠在底部。</li>
                 <li>双方轮流落子，率先在 <strong>水平、垂直或对角线</strong> 方向连成 <strong>四子</strong> 的一方获胜。</li>
                 <li>若棋盘填满仍未分胜负，则为 <strong>平局</strong>。</li>
-                <li>本程序 AI 使用 <strong>收益和蒙特卡洛模拟</strong> 算法，思考时间约 <strong>3 秒</strong>。</li>
-                <li>AI 会评估每个落子点的 <span class="highlight">收益和</span>（综合考虑获胜/失败速度），选择最优落点。</li>
+                <li>本程序 AI 使用 <strong>净胜率蒙特卡洛模拟</strong> 算法，思考时间约 <strong>3 秒</strong>。</li>
+                <li>AI 对每个可能落子点进行大量随机模拟，统计 <span class="highlight">胜局数 - 负局数</span> 作为评估指标，兼顾进攻与防守。</li>
                 <li>鼠标悬停 / 触摸滑动时显示 <strong>竖虚线</strong> 指示落子位置。</li>
             </ul>
             <button class="btn btn-primary" id="rulesCloseBtn">知道了</button>
         </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- JavaScript -->
-    <!-- ============================================================ -->
     <script>
         (function() {
             'use strict';
@@ -627,8 +602,6 @@
             const HUMAN = 1;
             const AI_PLAYER = 2;
 
-            // 收益公式参数
-            const THETA = 15.0; // 衰减因子
             const AI_THINK_TIME = 3000; // 3 秒
 
             // =============================================================
@@ -868,13 +841,11 @@
             }
 
             // =============================================================
-            //  AI 收益和蒙特卡洛模拟 (v2.0 核心算法)
+            //  模拟引擎
             // =============================================================
-
             /**
              * 模拟一局从 AI 在指定列落子开始的完整对局。
              * 返回 { result: 'win' | 'lose' | 'draw', steps: number }
-             * steps: 从 AI 落子到游戏结束所经历的总步数（包含 AI 落子）
              */
             function simulateGame(b, col) {
                 const sim = copyBoard(b);
@@ -885,12 +856,10 @@
                 sim[row][col] = AI_PLAYER;
                 let steps = 1;
 
-                // 检查 AI 是否立即获胜
                 if (checkWin(sim, row, col, AI_PLAYER)) {
                     return { result: 'win', steps: steps };
                 }
 
-                // 随机模拟剩余对局
                 let player = HUMAN;
                 while (true) {
                     const avail = getAvailableCols(sim);
@@ -914,25 +883,9 @@
                 }
             }
 
-            /**
-             * 计算单次模拟的收益值
-             * 获胜: e^(-a/4.2)   失败: -e^(-b/4.2)   平局: 0
-             */
-            function computeReward(result, steps) {
-                if (result === 'win') {
-                    return Math.exp(-steps / THETA);
-                } else if (result === 'lose') {
-                    return -Math.exp(-steps / THETA);
-                } else { // draw
-                    return 0;
-                }
-            }
-
-            /**
-             * AI 决策：使用收益和算法选择最佳落子列
-             * 在 AI_THINK_TIME (3秒) 内对每个候选列进行大量模拟，
-             * 计算平均收益，选择收益最高的列。
-             */
+            // =============================================================
+            //  AI 决策：净胜率 (Win - Lose) / Count
+            // =============================================================
             function aiMove() {
                 if (gameOver || isAITurn || currentPlayer !== AI_PLAYER) return;
 
@@ -948,56 +901,49 @@
                     return;
                 }
 
-                // 初始化每个候选列的统计数据
                 const stats = {};
                 for (const c of avail) {
-                    stats[c] = { totalReward: 0, count: 0 };
+                    stats[c] = { wins: 0, loses: 0, count: 0 };
                 }
 
                 const endTime = performance.now() + AI_THINK_TIME;
 
-                // 主模拟循环
-                let simCount = 0;
                 while (performance.now() < endTime) {
-                    // 轮流对每个候选列进行模拟（均匀分配）
                     for (const c of avail) {
                         if (performance.now() >= endTime) break;
                         const result = simulateGame(board, c);
                         if (result !== null) {
-                            const reward = computeReward(result.result, result.steps);
-                            stats[c].totalReward += reward;
                             stats[c].count++;
-                            simCount++;
+                            if (result.result === 'win') {
+                                stats[c].wins++;
+                            } else if (result.result === 'lose') {
+                                stats[c].loses++;
+                            }
+                            // 平局不计数
                         }
+                        // 更新进度条
+                        const elapsed = performance.now() - aiStartTime;
+                        const progress = Math.min(elapsed / AI_THINK_TIME, 1);
+                        updateThinkingBar(progress);
                     }
-                    // 更新进度条
-                    const elapsed = performance.now() - aiStartTime;
-                    const progress = Math.min(elapsed / AI_THINK_TIME, 1);
-                    updateThinkingBar(progress);
                 }
 
-                // 计算每个候选列的平均收益
+                // 选择净胜率最高的列
                 let bestCol = avail[0];
                 let bestScore = -Infinity;
-                let hasValidScore = false;
 
                 for (const c of avail) {
                     const s = stats[c];
-                    if (s.count === 0) {
-                        // 如果某列没有被模拟到，给予一个极低的分数
-                        // 这种情况极少发生，但以防万一
-                        continue;
-                    }
-                    const avgReward = s.totalReward / s.count;
-                    if (avgReward > bestScore) {
-                        bestScore = avgReward;
+                    if (s.count === 0) continue;
+                    const netWinRate = (s.wins - s.loses) / s.count;
+                    if (netWinRate > bestScore) {
+                        bestScore = netWinRate;
                         bestCol = c;
-                        hasValidScore = true;
                     }
                 }
 
-                // 如果所有列都没有有效模拟（极少发生），随机选择
-                if (!hasValidScore) {
+                // 保底：如果所有列都无模拟（极少），随机选
+                if (bestScore === -Infinity) {
                     bestCol = avail[Math.floor(Math.random() * avail.length)];
                 }
 
@@ -1013,7 +959,6 @@
                 selectedCol = -1;
                 stopThinkingBar();
 
-                // 检查胜负
                 if (checkWin(board, row, bestCol, AI_PLAYER)) {
                     gameOver = true;
                     isAITurn = false;
@@ -1028,7 +973,6 @@
                     return;
                 }
 
-                // 切换回合
                 currentPlayer = HUMAN;
                 isAITurn = false;
                 renderBoard();
@@ -1092,7 +1036,6 @@
                     clearTimeout(aiTimerId);
                     aiTimerId = null;
                 }
-                // 延迟启动 AI，让界面更新
                 aiTimerId = setTimeout(() => {
                     aiTimerId = null;
                     aiMove();
@@ -1380,8 +1323,8 @@
             initialScreen.classList.add('active');
             gameScreen.classList.remove('active');
 
-            console.log('🪟 屏风式四子棋 v2.0 已加载');
-            console.log('📖 核心算法: 收益和蒙特卡洛模拟 (思考时间 3 秒)');
+            console.log('🪟 屏风式四子棋 v2.0 (净胜率蒙特卡洛) 已加载');
+            console.log('📖 核心算法: 净胜率 (Win-Lose)/总模拟数, 思考时间 3 秒');
             console.log('📖 按 R 键重新开始，ESC 关闭弹窗');
 
         })();
