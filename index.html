@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>屏风式四子棋 · 收益模拟 (5秒)</title>
+    <title>屏风式四子棋 v2.0</title>
     <style>
-        /* ===== 全局样式 (与第二版完全一致) ===== */
+        /* ===== 全局重置 & 基础 ===== */
         * {
             margin: 0;
             padding: 0;
@@ -25,6 +25,7 @@
             margin: 0;
         }
 
+        /* ===== 通用容器 ===== */
         .container {
             background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(12px);
@@ -39,6 +40,7 @@
             position: relative;
         }
 
+        /* ===== 屏幕切换 ===== */
         .screen {
             display: none;
             flex-direction: column;
@@ -61,6 +63,7 @@
             }
         }
 
+        /* ===== 通用头部 ===== */
         .header {
             width: 100%;
             display: flex;
@@ -79,11 +82,18 @@
         .header h1 span {
             color: #f7d44a;
         }
+        .header h1 .version {
+            font-size: 14px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.40);
+            margin-left: 6px;
+        }
         .header-actions {
             display: flex;
             gap: 10px;
         }
 
+        /* ===== 按钮通用 ===== */
         .btn {
             display: inline-flex;
             align-items: center;
@@ -164,6 +174,7 @@
             background: rgba(255, 255, 255, 0.15);
         }
 
+        /* ===== 初始界面 ===== */
         #initialScreen .subtitle {
             color: rgba(255, 255, 255, 0.60);
             font-size: 15px;
@@ -183,6 +194,7 @@
             min-width: 80px;
             max-width: 160px;
         }
+
         .start-area {
             margin-top: 8px;
             width: 100%;
@@ -195,6 +207,7 @@
             font-size: 20px;
         }
 
+        /* ===== 对局界面 ===== */
         #gameScreen .game-status {
             width: 100%;
             text-align: center;
@@ -227,7 +240,26 @@
         .game-status .indicator.idle {
             background: rgba(255, 255, 255, 0.15);
         }
+        .game-status .thinking-dots::after {
+            content: '...';
+            animation: dots 1.2s steps(3, end) infinite;
+        }
+        @keyframes dots {
+            0% {
+                content: '';
+            }
+            33% {
+                content: '.';
+            }
+            66% {
+                content: '..';
+            }
+            100% {
+                content: '...';
+            }
+        }
 
+        /* ===== 棋盘容器 ===== */
         .board-wrapper {
             width: 100%;
             display: flex;
@@ -249,6 +281,7 @@
             border: 2px solid rgba(255, 255, 255, 0.10);
         }
 
+        /* ===== 结果弹窗 ===== */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -321,6 +354,7 @@
             font-size: 17px;
         }
 
+        /* ===== 规则弹窗 ===== */
         .rules-overlay {
             position: fixed;
             top: 0;
@@ -380,7 +414,12 @@
             padding: 12px;
             font-size: 16px;
         }
+        .rules-box .highlight {
+            color: #f7d44a;
+            font-weight: 600;
+        }
 
+        /* ===== 响应式 ===== */
         @media (max-width: 480px) {
             .container {
                 padding: 18px 14px 22px;
@@ -388,6 +427,9 @@
             }
             .header h1 {
                 font-size: 20px;
+            }
+            .header h1 .version {
+                font-size: 12px;
             }
             .btn {
                 font-size: 13px;
@@ -433,6 +475,9 @@
             .header h1 {
                 font-size: 17px;
             }
+            .header h1 .version {
+                font-size: 10px;
+            }
             .btn {
                 font-size: 12px;
                 padding: 6px 10px;
@@ -459,22 +504,46 @@
             background: rgba(247, 212, 74, 0.30);
             border-radius: 4px;
         }
+
+        /* AI 思考进度条 (装饰) */
+        .thinking-bar {
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: -6px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .thinking-bar.active {
+            opacity: 1;
+        }
+        .thinking-bar .fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #f7d44a, #f5b342);
+            border-radius: 4px;
+            transition: width 0.1s linear;
+        }
     </style>
 </head>
 <body>
 
-    <!-- ===== 主容器 ===== -->
+    <!-- ============================================================ -->
+    <!-- 主容器 -->
+    <!-- ============================================================ -->
     <div class="container" id="app">
 
         <!-- ===== 初始界面 ===== -->
         <div class="screen active" id="initialScreen">
             <div class="header">
-                <h1>🪟 屏风式<span>四子棋</span></h1>
+                <h1>🪟 屏风式<span>四子棋</span><span class="version">v2.0</span></h1>
                 <div class="header-actions">
                     <button class="btn btn-rule" id="initRuleBtn">📖 规则</button>
                 </div>
             </div>
-            <p class="subtitle">🧠 收益模拟 · 5秒思考</p>
+            <p class="subtitle">✨ 与 AI 对弈 · 收益和智能决策</p>
 
             <div class="choice-group">
                 <button class="btn btn-choice active" data-choice="human" id="choiceHuman">
@@ -493,7 +562,7 @@
         <!-- ===== 对局界面 ===== -->
         <div class="screen" id="gameScreen">
             <div class="header">
-                <h1>🪟 四子棋</h1>
+                <h1>🪟 四子棋 <span class="version">v2.0</span></h1>
                 <div class="header-actions">
                     <button class="btn btn-restart" id="restartBtn">🔄 重新开始</button>
                     <button class="btn btn-rule" id="gameRuleBtn">📖 规则</button>
@@ -503,6 +572,10 @@
             <div class="game-status" id="gameStatus">
                 <span class="indicator human" id="turnDot"></span>
                 <span id="turnText">你的回合</span>
+            </div>
+
+            <div class="thinking-bar" id="thinkingBar">
+                <div class="fill" id="thinkingFill"></div>
             </div>
 
             <div class="board-wrapper">
@@ -530,7 +603,8 @@
                 <li>棋盘为 <strong>7 列 × 6 行</strong>，棋子从顶部垂直落下，堆叠在底部。</li>
                 <li>双方轮流落子，率先在 <strong>水平、垂直或对角线</strong> 方向连成 <strong>四子</strong> 的一方获胜。</li>
                 <li>若棋盘填满仍未分胜负，则为 <strong>平局</strong>。</li>
-                <li>本程序 AI 使用 <strong>收益模拟算法</strong>（第二版），思考时间延长至 <strong>5秒</strong>，决策更稳定。</li>
+                <li>本程序 AI 使用 <strong>收益和蒙特卡洛模拟</strong> 算法，思考时间约 <strong>3 秒</strong>。</li>
+                <li>AI 会评估每个落子点的 <span class="highlight">收益和</span>（综合考虑获胜/失败速度），选择最优落点。</li>
                 <li>鼠标悬停 / 触摸滑动时显示 <strong>竖虚线</strong> 指示落子位置。</li>
             </ul>
             <button class="btn btn-primary" id="rulesCloseBtn">知道了</button>
@@ -538,7 +612,7 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- JavaScript (核心算法: 第二版收益模拟 + 5秒思考) -->
+    <!-- JavaScript -->
     <!-- ============================================================ -->
     <script>
         (function() {
@@ -552,8 +626,10 @@
             const EMPTY = 0;
             const HUMAN = 1;
             const AI_PLAYER = 2;
-            const REWARD_DECAY = 4.2;
-            const THINK_TIME_MS = 5000; // ★★★ 思考时间延长至 5 秒 ★★★
+
+            // 收益公式参数
+            const THETA = 4.2; // 衰减因子
+            const AI_THINK_TIME = 3000; // 3 秒
 
             // =============================================================
             //  DOM 引用
@@ -578,6 +654,8 @@
             const gameRuleBtn = document.getElementById('gameRuleBtn');
             const rulesModal = document.getElementById('rulesModal');
             const rulesCloseBtn = document.getElementById('rulesCloseBtn');
+            const thinkingBar = document.getElementById('thinkingBar');
+            const thinkingFill = document.getElementById('thinkingFill');
 
             // =============================================================
             //  状态
@@ -590,8 +668,10 @@
             let isAITurn = false;
             let aiTimerId = null;
             let isGameActive = false;
+            let thinkingIntervalId = null;
+            let aiStartTime = 0;
 
-            // Canvas 尺寸
+            // Canvas 尺寸 (逻辑像素)
             const CELL_SIZE = 60;
             const PADDING = 14;
             const BOARD_W = PADDING * 2 + COLS * CELL_SIZE;
@@ -628,14 +708,19 @@
                 return getAvailableCols(b).length === 0;
             }
 
+            // =============================================================
+            //  胜负判定
+            // =============================================================
             function checkWin(b, row, col, player) {
                 if (b[row][col] !== player) return false;
+
                 const directions = [
                     [0, 1],
                     [1, 0],
                     [1, 1],
                     [1, -1]
                 ];
+
                 for (const [dr, dc] of directions) {
                     let count = 1;
                     for (let step = 1; step < 4; step++) {
@@ -658,7 +743,7 @@
             }
 
             // =============================================================
-            //  棋盘渲染 (不变)
+            //  棋盘渲染
             // =============================================================
             function resizeCanvas() {
                 const rect = canvas.getBoundingClientRect();
@@ -694,6 +779,7 @@
                         ctx.fill();
                         ctx.shadowColor = 'rgba(0,0,0,0.4)';
                         ctx.shadowBlur = 6;
+
                         const val = board[r][c];
                         if (val === HUMAN) {
                             const g = ctx.createRadialGradient(x - 4, y - 4, 4, x, y, RADIUS);
@@ -746,7 +832,7 @@
                     }
                 }
 
-                // 竖虚线指示器
+                // ---- 竖虚线指示器 ----
                 if (selectedCol >= 0 && selectedCol < COLS && !gameOver && !isAITurn && currentPlayer === HUMAN) {
                     const col = selectedCol;
                     const emptyRow = getEmptyRow(board, col);
@@ -782,25 +868,35 @@
             }
 
             // =============================================================
-            //  ★★★ 核心算法 (第二版收益模拟) ★★★
+            //  AI 收益和蒙特卡洛模拟 (v2.0 核心算法)
             // =============================================================
 
-            function simulateGameWithReward(boardState, col) {
-                const sim = copyBoard(boardState);
+            /**
+             * 模拟一局从 AI 在指定列落子开始的完整对局。
+             * 返回 { result: 'win' | 'lose' | 'draw', steps: number }
+             * steps: 从 AI 落子到游戏结束所经历的总步数（包含 AI 落子）
+             */
+            function simulateGame(b, col) {
+                const sim = copyBoard(b);
                 const row = getEmptyRow(sim, col);
-                if (row === -1) return 0;
+                if (row === -1) return null;
 
+                // AI 落子
                 sim[row][col] = AI_PLAYER;
                 let steps = 1;
 
+                // 检查 AI 是否立即获胜
                 if (checkWin(sim, row, col, AI_PLAYER)) {
-                    return Math.exp(-steps / REWARD_DECAY);
+                    return { result: 'win', steps: steps };
                 }
 
+                // 随机模拟剩余对局
                 let player = HUMAN;
                 while (true) {
                     const avail = getAvailableCols(sim);
-                    if (avail.length === 0) return 0;
+                    if (avail.length === 0) {
+                        return { result: 'draw', steps: steps };
+                    }
 
                     const randCol = avail[Math.floor(Math.random() * avail.length)];
                     const randRow = getEmptyRow(sim, randCol);
@@ -809,72 +905,115 @@
 
                     if (checkWin(sim, randRow, randCol, player)) {
                         if (player === AI_PLAYER) {
-                            return Math.exp(-steps / REWARD_DECAY);
+                            return { result: 'win', steps: steps };
                         } else {
-                            return -Math.exp(-steps / REWARD_DECAY);
+                            return { result: 'lose', steps: steps };
                         }
                     }
-
                     player = (player === HUMAN) ? AI_PLAYER : HUMAN;
                 }
             }
 
+            /**
+             * 计算单次模拟的收益值
+             * 获胜: e^(-a/4.2)   失败: -e^(-b/4.2)   平局: 0
+             */
+            function computeReward(result, steps) {
+                if (result === 'win') {
+                    return Math.exp(-steps / THETA);
+                } else if (result === 'lose') {
+                    return -Math.exp(-steps / THETA);
+                } else { // draw
+                    return 0;
+                }
+            }
+
+            /**
+             * AI 决策：使用收益和算法选择最佳落子列
+             * 在 AI_THINK_TIME (3秒) 内对每个候选列进行大量模拟，
+             * 计算平均收益，选择收益最高的列。
+             */
             function aiMove() {
                 if (gameOver || isAITurn || currentPlayer !== AI_PLAYER) return;
 
                 isAITurn = true;
-                updateStatusText('🤖 AI 思考中 ... (5秒)', 'idle');
+                aiStartTime = performance.now();
+                updateStatusText('🤖 AI 思考中', 'idle');
+                startThinkingBar();
 
                 const avail = getAvailableCols(board);
                 if (avail.length === 0) {
                     isAITurn = false;
+                    stopThinkingBar();
                     return;
                 }
 
-                const totalReward = {};
-                const count = {};
+                // 初始化每个候选列的统计数据
+                const stats = {};
                 for (const c of avail) {
-                    totalReward[c] = 0;
-                    count[c] = 0;
+                    stats[c] = { totalReward: 0, count: 0 };
                 }
 
-                const startTime = performance.now();
-                const endTime = startTime + THINK_TIME_MS; // 使用 5 秒
+                const endTime = performance.now() + AI_THINK_TIME;
 
-                // 初始模拟：每个列至少一次
-                for (const c of avail) {
-                    const reward = simulateGameWithReward(board, c);
-                    totalReward[c] += reward;
-                    count[c] += 1;
-                }
-
-                // 主循环：随机模拟
+                // 主模拟循环
+                let simCount = 0;
                 while (performance.now() < endTime) {
-                    const col = avail[Math.floor(Math.random() * avail.length)];
-                    const reward = simulateGameWithReward(board, col);
-                    totalReward[col] += reward;
-                    count[col] += 1;
+                    // 轮流对每个候选列进行模拟（均匀分配）
+                    for (const c of avail) {
+                        if (performance.now() >= endTime) break;
+                        const result = simulateGame(board, c);
+                        if (result !== null) {
+                            const reward = computeReward(result.result, result.steps);
+                            stats[c].totalReward += reward;
+                            stats[c].count++;
+                            simCount++;
+                        }
+                    }
+                    // 更新进度条
+                    const elapsed = performance.now() - aiStartTime;
+                    const progress = Math.min(elapsed / AI_THINK_TIME, 1);
+                    updateThinkingBar(progress);
                 }
 
+                // 计算每个候选列的平均收益
                 let bestCol = avail[0];
-                let bestAvg = -Infinity;
+                let bestScore = -Infinity;
+                let hasValidScore = false;
+
                 for (const c of avail) {
-                    const avg = totalReward[c] / count[c];
-                    if (avg > bestAvg) {
-                        bestAvg = avg;
+                    const s = stats[c];
+                    if (s.count === 0) {
+                        // 如果某列没有被模拟到，给予一个极低的分数
+                        // 这种情况极少发生，但以防万一
+                        continue;
+                    }
+                    const avgReward = s.totalReward / s.count;
+                    if (avgReward > bestScore) {
+                        bestScore = avgReward;
                         bestCol = c;
+                        hasValidScore = true;
                     }
                 }
 
+                // 如果所有列都没有有效模拟（极少发生），随机选择
+                if (!hasValidScore) {
+                    bestCol = avail[Math.floor(Math.random() * avail.length)];
+                }
+
+                // ---- AI 落子 ----
                 const row = getEmptyRow(board, bestCol);
                 if (row === -1) {
                     isAITurn = false;
+                    stopThinkingBar();
                     return;
                 }
 
                 board[row][bestCol] = AI_PLAYER;
                 selectedCol = -1;
+                stopThinkingBar();
 
+                // 检查胜负
                 if (checkWin(board, row, bestCol, AI_PLAYER)) {
                     gameOver = true;
                     isAITurn = false;
@@ -889,6 +1028,7 @@
                     return;
                 }
 
+                // 切换回合
                 currentPlayer = HUMAN;
                 isAITurn = false;
                 renderBoard();
@@ -896,7 +1036,32 @@
             }
 
             // =============================================================
-            //  游戏操作 (不变)
+            //  思考进度条控制
+            // =============================================================
+            function startThinkingBar() {
+                thinkingBar.classList.add('active');
+                thinkingFill.style.width = '0%';
+                if (thinkingIntervalId) {
+                    cancelAnimationFrame(thinkingIntervalId);
+                    thinkingIntervalId = null;
+                }
+            }
+
+            function updateThinkingBar(progress) {
+                thinkingFill.style.width = (progress * 100) + '%';
+            }
+
+            function stopThinkingBar() {
+                thinkingBar.classList.remove('active');
+                thinkingFill.style.width = '0%';
+                if (thinkingIntervalId) {
+                    cancelAnimationFrame(thinkingIntervalId);
+                    thinkingIntervalId = null;
+                }
+            }
+
+            // =============================================================
+            //  游戏操作
             // =============================================================
             function placeHumanPiece(col) {
                 if (gameOver || isAITurn || currentPlayer !== HUMAN) return false;
@@ -921,12 +1086,13 @@
 
                 currentPlayer = AI_PLAYER;
                 renderBoard();
-                updateStatusText('🤖 AI 思考中 ... (5秒)', 'idle');
+                updateStatusText('🤖 AI 思考中', 'idle');
 
                 if (aiTimerId) {
                     clearTimeout(aiTimerId);
                     aiTimerId = null;
                 }
+                // 延迟启动 AI，让界面更新
                 aiTimerId = setTimeout(() => {
                     aiTimerId = null;
                     aiMove();
@@ -940,6 +1106,7 @@
                     clearTimeout(aiTimerId);
                     aiTimerId = null;
                 }
+                stopThinkingBar();
                 board = createEmptyBoard();
                 gameOver = false;
                 isAITurn = false;
@@ -948,7 +1115,7 @@
                 renderBoard();
 
                 if (firstPlayer === AI_PLAYER) {
-                    updateStatusText('🤖 AI 思考中 ... (5秒)', 'idle');
+                    updateStatusText('🤖 AI 思考中', 'idle');
                     aiTimerId = setTimeout(() => {
                         aiTimerId = null;
                         aiMove();
@@ -959,7 +1126,7 @@
             }
 
             // =============================================================
-            //  UI 更新 (不变)
+            //  UI 更新
             // =============================================================
             function updateStatusText(text, dotType) {
                 turnText.textContent = text;
@@ -998,6 +1165,7 @@
                     clearTimeout(aiTimerId);
                     aiTimerId = null;
                 }
+                stopThinkingBar();
                 isAITurn = false;
                 isGameActive = false;
                 gameScreen.classList.remove('active');
@@ -1031,7 +1199,7 @@
                 renderBoard();
 
                 if (firstPlayer === AI_PLAYER) {
-                    updateStatusText('🤖 AI 思考中 ... (5秒)', 'idle');
+                    updateStatusText('🤖 AI 思考中', 'idle');
                     if (aiTimerId) {
                         clearTimeout(aiTimerId);
                         aiTimerId = null;
@@ -1046,7 +1214,7 @@
             }
 
             // =============================================================
-            //  事件处理 (不变)
+            //  事件处理：鼠标 & 触摸
             // =============================================================
             function getColFromEvent(e) {
                 const rect = canvas.getBoundingClientRect();
@@ -1123,7 +1291,9 @@
                 }
             }
 
-            // ---- 绑定事件 ----
+            // =============================================================
+            //  事件绑定
+            // =============================================================
             canvas.addEventListener('mousemove', handlePointerMove);
             canvas.addEventListener('click', function(e) {
                 if (!e.touches) {
@@ -1131,6 +1301,7 @@
                 }
             });
             canvas.addEventListener('mouseleave', handlePointerLeave);
+
             canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
             canvas.addEventListener('touchmove', handlePointerMove, { passive: false });
             canvas.addEventListener('touchend', handlePointerUp, { passive: false });
@@ -1179,6 +1350,7 @@
                 if (e.target === this) closeRules();
             });
 
+            // ---- 键盘快捷键 ----
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'r' || e.key === 'R') {
                     if (gameScreen.classList.contains('active')) {
@@ -1208,8 +1380,12 @@
             initialScreen.classList.add('active');
             gameScreen.classList.remove('active');
 
-            console.log('🪟 屏风式四子棋 (第二版 · 收益模拟 · 5秒思考) 已加载');
+            console.log('🪟 屏风式四子棋 v2.0 已加载');
+            console.log('📖 核心算法: 收益和蒙特卡洛模拟 (思考时间 3 秒)');
+            console.log('📖 按 R 键重新开始，ESC 关闭弹窗');
+
         })();
     </script>
+
 </body>
 </html>
